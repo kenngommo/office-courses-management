@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPM Courses Hub - Tracking & Analytics</title>
+    <!-- Google Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="app.css">
+</head>
+<body class="dark-theme">
+    <div class="background-glow"></div>
+    
+    <div class="app-container">
+        <!-- TOP NAVBAR -->
+        <header class="app-header">
+            <div class="header-left">
+                <span class="material-icons-round logo-icon">auto_stories</span>
+                <div class="logo-text">
+                    <h1>EPM Courses Hub</h1>
+                    <p>Hệ thống Quản lý & Theo dõi Tiến độ</p>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <!-- User Simulator Dropdown -->
+                <div class="user-selector-container">
+                    <span class="material-icons-round selector-icon">account_circle</span>
+                    <select id="userSelector" class="user-select-dropdown">
+                        <!-- Populated dynamically via JS -->
+                    </select>
+                </div>
+                <div class="theme-toggle" id="themeToggleBtn">
+                    <span class="material-icons-round">light_mode</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <div class="main-layout">
+            <nav class="app-sidebar" id="appSidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item active" id="tabEmployeeLink" data-tab="employee-tab">
+                        <span class="material-icons-round">dashboard</span>
+                        <span>Tiến độ cá nhân</span>
+                    </li>
+                    <li class="nav-item hidden" id="tabManagerLink" data-tab="manager-tab">
+                        <span class="material-icons-round">analytics</span>
+                        <span>Quản lý nhóm</span>
+                    </li>
+                </ul>
+                <div class="sidebar-bottom-sec">
+                    <div class="sidebar-toggle-row">
+                        <span class="material-icons-round" id="sidebarToggleBtn" title="Thu gọn / Mở rộng (Ctrl + B)">menu_open</span>
+                    </div>
+                    <div class="sidebar-footer">
+                        <p>© 2026 EPM V5 System</p>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- CONTENT AREA -->
+            <main class="app-content">
+                
+                <section id="employee-tab" class="tab-pane active">
+                    <div class="pane-header flex-header">
+                        <div class="header-title-sec-wrap">
+                            <h2>Bảng tiến độ cá nhân: <span id="currentUserNameLabel">...</span></h2>
+                            <span class="role-badge" id="currentUserRoleLabel">Employee</span>
+                        </div>
+                        <div class="course-filter-container">
+                            <label for="courseFilter">Xem theo Khóa học:</label>
+                            <select id="courseFilter" class="form-control">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards Row -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card glass">
+                            <div class="kpi-icon-wrapper blue">
+                                <span class="material-icons-round">menu_book</span>
+                            </div>
+                            <div class="kpi-data">
+                                <h3 id="kpiTotalModules">0</h3>
+                                <p>Tổng số module</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass">
+                            <div class="kpi-icon-wrapper green">
+                                <span class="material-icons-round">check_circle</span>
+                            </div>
+                            <div class="kpi-data">
+                                <h3 id="kpiCompleted">0</h3>
+                                <p>Đã hoàn thành</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass">
+                            <div class="kpi-icon-wrapper yellow">
+                                <span class="material-icons-round">schedule</span>
+                            </div>
+                            <div class="kpi-data">
+                                <h3 id="kpiInProgress">0</h3>
+                                <p>Đang tiến hành</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass">
+                            <div class="kpi-icon-wrapper red">
+                                <span class="material-icons-round">report_problem</span>
+                            </div>
+                            <div class="kpi-data">
+                                <h3 id="kpiDelayed">0</h3>
+                                <p>Trễ tiến độ</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Personal Analytics Charts Row -->
+                    <div class="personal-analytics-row">
+                        <div class="analytics-card glass progress-ring-card">
+                            <h4>Tiến độ khóa học (Trọng số giờ)</h4>
+                            <div class="progress-ring-container">
+                                <svg class="progress-ring" width="120" height="120">
+                                    <circle class="progress-ring-circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60"/>
+                                    <circle class="progress-ring-circle" id="courseProgressRing" stroke="var(--color-blue)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+                                </svg>
+                                <div class="progress-ring-text">
+                                    <span id="courseProgressRingText" class="font-mono">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-card glass progress-speed-card">
+                            <h4>Trạng thái học tập của Module</h4>
+                            <div class="stacked-bar-container">
+                                <div class="stacked-bar">
+                                    <div class="stacked-segment segment-fast" id="segFast" style="width: 0%"></div>
+                                    <div class="stacked-segment segment-ontrack" id="segOnTrack" style="width: 0%"></div>
+                                    <div class="stacked-segment segment-slow" id="segSlow" style="width: 0%"></div>
+                                    <div class="stacked-segment segment-tooslow" id="segTooSlow" style="width: 0%"></div>
+                                </div>
+                                <div class="stacked-legend">
+                                    <span class="legend-item"><span class="color-dot bg-fast"></span> Nhanh: <strong id="lblFastCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-ontrack"></span> Đúng hạn: <strong id="lblOnTrackCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-slow"></span> Chậm: <strong id="lblSlowCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-tooslow"></span> Quá chậm: <strong id="lblTooSlowCount">0</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Course Progress Table Card -->
+                    <div class="data-card glass">
+                        <div class="card-header">
+                            <div class="header-title-sec">
+                                <span class="material-icons-round">list_alt</span>
+                                <h3>Danh sách lộ trình học của tôi</h3>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="personalProgressTable">
+                                <thead>
+                                    <tr>
+                                        <th>Phân loại (Plan)</th>
+                                        <th>Khóa học (Course)</th>
+                                        <th>Lộ trình (Path)</th>
+                                        <th>Tên Module</th>
+                                        <th>Thời lượng</th>
+                                        <th>Hạn hoàn thành (Target)</th>
+                                        <th>Tiến độ (%)</th>
+                                        <th>Trạng thái</th>
+                                        <th>Đánh giá</th>
+                                        <th class="actions-col">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. MANAGER DASHBOARD TAB -->
+                <section id="manager-tab" class="tab-pane">
+                    <!-- Nav sub-tabs for Manager -->
+                    <div class="manager-subnav">
+                        <button class="subnav-btn active" data-subtab="team-progress-subtab">
+                            <span class="material-icons-round">groups</span> Tiến độ nhân viên
+                        </button>
+                        <button class="subnav-btn" data-subtab="employee-mgmt-subtab">
+                            <span class="material-icons-round">person_add</span> Quản lý nhân viên
+                        </button>
+                        <button class="subnav-btn" data-subtab="course-mgmt-subtab">
+                            <span class="material-icons-round">library_books</span> Quản lý khóa học
+                        </button>
+                        <button class="subnav-btn" data-subtab="enrollment-subtab">
+                            <span class="material-icons-round">assignment_turned_in</span> Đăng ký khóa học
+                        </button>
+                    </div>
+
+                    <!-- 2A. SUB-TAB: TEAM PROGRESS -->
+                    <div id="team-progress-subtab" class="subtab-pane active">
+                        <div class="pane-header">
+                            <h2>Tổng hợp tiến độ nhân viên</h2>
+                        </div>
+                        
+                        <!-- Progress chart summary container -->
+                        <div class="progress-bar-legend glass">
+                            <div class="legend-title">Ghi chú trạng thái đánh giá:</div>
+                            <div class="legend-items">
+                                <span class="legend-badge status-fast"><span class="color-dot bg-fast"></span> Học nhanh</span>
+                                <span class="legend-badge status-ontrack"><span class="color-dot bg-ontrack"></span> Đúng tiến độ</span>
+                                <span class="legend-badge status-slow"><span class="color-dot bg-slow"></span> Chậm</span>
+                                <span class="legend-badge status-tooslow"><span class="color-dot bg-tooslow"></span> Quá chậm</span>
+                            </div>
+                        </div>
+
+                        <!-- Team Progress table -->
+                        <div class="data-card glass">
+                            <div class="table-responsive">
+                                <table class="data-table" id="teamProgressTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Nhân viên</th>
+                                            <th>Phân loại (Plan)</th>
+                                            <th>Khóa học (Course)</th>
+                                            <th>Lộ trình (Path)</th>
+                                            <th>Module</th>
+                                            <th>Hạn hoàn thành (Target)</th>
+                                            <th>Tiến độ (%)</th>
+                                            <th>Đánh giá trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2B. SUB-TAB: EMPLOYEE MANAGEMENT -->
+                    <div id="employee-mgmt-subtab" class="subtab-pane">
+                        <div class="pane-header flex-header">
+                            <h2>Danh sách nhân sự hệ thống</h2>
+                            <button class="btn btn-primary" id="btnOpenAddEmployee">
+                                <span class="material-icons-round">add</span> Thêm nhân viên
+                            </button>
+                        </div>
+
+                        <div class="data-card glass">
+                            <div class="table-responsive">
+                                <table class="data-table" id="employeesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Tên tài khoản (Username)</th>
+                                            <th>Họ và tên (Tiếng Việt)</th>
+                                            <th>Tên Tiếng Anh</th>
+                                            <th>Quyền hạn (Role)</th>
+                                            <th class="actions-col">Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2C. SUB-TAB: COURSE MANAGEMENT -->
+                    <div id="course-mgmt-subtab" class="subtab-pane">
+                        <div class="pane-header flex-header">
+                            <div class="header-title-sec-wrap">
+                                <h2>Danh sách chương trình học</h2>
+                                <p class="text-secondary font-sm">Quản lý khoá học theo phân cấp (Level 1: Phân loại / Plan - Level 2: Khóa học & Module)</p>
+                            </div>
+                            <div class="mgmt-actions-row">
+                                <button class="btn btn-secondary btn-sm" id="btnExpandAllPlans">
+                                    <span class="material-icons-round font-sm">unfold_more</span> Mở tất cả
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="btnCollapseAllPlans">
+                                    <span class="material-icons-round font-sm">unfold_less</span> Thu gọn tất cả
+                                </button>
+                                <button class="btn btn-primary" id="btnOpenAddCourse">
+                                    <span class="material-icons-round">add</span> Tạo khóa học mới
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- LEVEL 1 & LEVEL 2 HIERARCHY CONTAINER -->
+                        <div id="courseHierarchyContainer" class="hierarchy-container">
+                            <!-- Rendered dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- 2D. SUB-TAB: COURSE ENROLLMENT -->
+                    <div id="enrollment-subtab" class="subtab-pane">
+                        <div class="pane-header flex-header">
+                            <h2>Đăng ký & Lập lịch khóa học cho nhân viên</h2>
+                            <button class="btn btn-primary" id="btnOpenAddEnrollment">
+                                <span class="material-icons-round">add</span> Đăng ký khóa học
+                            </button>
+                        </div>
+
+                        <div class="data-card glass">
+                            <div class="table-responsive">
+                                <table class="data-table" id="enrollmentsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Tài khoản</th>
+                                            <th>Tên nhân viên</th>
+                                            <th>Tên khóa học</th>
+                                            <th>Ngày bắt đầu</th>
+                                            <th>Ngày kết thúc dự kiến</th>
+                                            <th>Lịch làm việc</th>
+                                            <th class="actions-col">Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL: UPDATE MODULE PROGRESS (FOR EMPLOYEE) -->
+    <div class="modal-backdrop" id="progressModal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h3>Cập nhật tiến độ học tập</h3>
+                <span class="material-icons-round close-btn" id="closeProgressModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="progressForm">
+                    <input type="hidden" id="progUsername">
+                    <input type="hidden" id="progCourseName">
+                    <input type="hidden" id="progPath">
+                    <input type="hidden" id="progModuleName">
+                    
+                    <div class="form-group-info">
+                        <p><strong>Khóa học:</strong> <span id="progInfoCourse">...</span></p>
+                        <p><strong>Học phần:</strong> <span id="progInfoModule">...</span></p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="progStatus">Trạng thái học tập</label>
+                        <select id="progStatus" class="form-control" required>
+                            <option value="Not Started">Chưa bắt đầu (Not Started)</option>
+                            <option value="In Progress">Đang tiến hành (In Progress)</option>
+                            <option value="Completed">Đã hoàn thành (Completed)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="progPercent">Tiến trình (%) <span id="percentLabel">0%</span></label>
+                        <input type="range" id="progPercent" class="form-range" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="progStartDate">Ngày bắt đầu <span class="quick-date-btn" onclick="setToday('progStartDate')">Hôm nay</span></label>
+                            <input type="date" id="progStartDate" class="form-control">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="progCompDate">Ngày hoàn thành <span class="quick-date-btn" onclick="setToday('progCompDate')">Hôm nay</span></label>
+                            <input type="date" id="progCompDate" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="progPlannedDate">Hạn hoàn thành <span class="quick-date-btn" onclick="setToday('progPlannedDate')">Hôm nay</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 7)">+7 ngày</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 14)">+14 ngày</span></label>
+                        <input type="date" id="progPlannedDate" class="form-control" required>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelProgressModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu cập nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT EMPLOYEE -->
+    <div class="modal-backdrop" id="employeeModal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">Thêm nhân viên mới</h3>
+                <span class="material-icons-round close-btn" id="closeEmployeeModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm">
+                    <div class="form-group">
+                        <label for="empUsername">Tên tài khoản (Username / Email)</label>
+                        <input type="text" id="empUsername" class="form-control" required placeholder="E.g. nguyenvana">
+                    </div>
+                    <div class="form-group">
+                        <label for="empFullname">Họ và tên (Tiếng Việt)</label>
+                        <input type="text" id="empFullname" class="form-control" required placeholder="E.g. Nguyễn Văn A">
+                    </div>
+                    <div class="form-group">
+                        <label for="empEnglishName">Tên tiếng Anh (English Name)</label>
+                        <input type="text" id="empEnglishName" class="form-control" placeholder="E.g. Liam Le">
+                    </div>
+                    <div class="form-group">
+                        <label for="empRole">Quyền hạn</label>
+                        <select id="empRole" class="form-control" required>
+                            <option value="Employee">Nhân viên (Employee)</option>
+                            <option value="Manager">Quản lý (Manager)</option>
+                            <option value="Power User">Power User</option>
+                            <option value="Super User">Super User</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelEmployeeModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu nhân sự</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD COURSE -->
+    <div class="modal-backdrop" id="courseModal">
+        <div class="modal-content glass wide-modal">
+            <div class="modal-header">
+                <h3>Thêm khóa học mới & phân cấp học tập</h3>
+                <span class="material-icons-round close-btn" id="closeCourseModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="courseForm">
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="coursePlan">Phân loại (Plan)</label>
+                            <input type="text" id="coursePlan" class="form-control" required placeholder="E.g. Oracle EPM hoặc Pigments Learning">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="courseNameInput">Tên khóa học (Course Name)</label>
+                            <input type="text" id="courseNameInput" class="form-control" required placeholder="E.g. Become a Certified FCC Implementer">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="coursePath">Lộ trình con (Path - bỏ trống nếu chỉ có Course -> Modules)</label>
+                        <input type="text" id="coursePath" class="form-control" placeholder="E.g. Basic Path / Advanced Path">
+                    </div>
+
+                    <div class="modules-section">
+                        <div class="section-title-row">
+                            <h4>Danh sách học phần (Modules)</h4>
+                            <button type="button" class="btn btn-sm btn-secondary" id="btnAddModuleRow">
+                                <span class="material-icons-round">add</span> Thêm module
+                            </button>
+                        </div>
+                        
+                        <div class="module-rows-container" id="moduleRowsContainer">
+                            <!-- A module input row template -->
+                            <div class="module-input-row">
+                                <div class="form-group flex-2">
+                                    <label>Tên Module</label>
+                                    <input type="text" class="form-control mod-name" required placeholder="E.g. Module 1: Introduction">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label>Thời lượng (vd: 1h 30m)</label>
+                                    <input type="text" class="form-control mod-dur" required placeholder="1h 30m">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label>Số phút (Minutes)</label>
+                                    <input type="number" class="form-control mod-dur-min" required placeholder="90">
+                                </div>
+                                <div class="form-group check-group">
+                                    <label>Queue</label>
+                                    <input type="checkbox" class="form-check mod-queue" checked>
+                                </div>
+                                <span class="material-icons-round delete-row-btn" onclick="this.parentElement.remove()">delete</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelCourseModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu chương trình học</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT ENROLLMENT -->
+    <div class="modal-backdrop" id="enrollmentModal">
+        <div class="modal-content glass wide-modal">
+            <div class="modal-header">
+                <h3 id="enrollmentModalTitle">Đăng ký lộ trình / khóa học cho nhân viên</h3>
+                <span class="material-icons-round close-btn" id="closeEnrollmentModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="enrollmentForm">
+                    <div class="form-group">
+                        <label for="enrUsername">Chọn nhân viên</label>
+                        <select id="enrUsername" class="form-control" required>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Target Scope Selector (Plan vs Course) - Default Plan -->
+                    <div class="form-group">
+                        <label>Phạm vi đăng ký (Mặc định: Theo Plan)</label>
+                        <div class="radio-toggle-group">
+                            <label class="radio-card active" id="lblTargetPlan">
+                                <input type="radio" name="enrTargetType" value="plan" checked>
+                                <span class="material-icons-round font-sm">school</span> Theo Plan (Phân loại khoá học)
+                            </label>
+                            <label class="radio-card" id="lblTargetCourse">
+                                <input type="radio" name="enrTargetType" value="course">
+                                <span class="material-icons-round font-sm">book</span> Theo Khóa học lẻ (Course)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Select Plan (Default) -->
+                    <div class="form-group" id="groupEnrPlan">
+                        <label for="enrPlanSelect">Chọn Phân loại khoá học (Plan)</label>
+                        <select id="enrPlanSelect" class="form-control">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Select Course (Hidden when Plan selected) -->
+                    <div class="form-group hidden" id="groupEnrCourse">
+                        <label for="enrCourseSelect">Chọn Khóa học cụ thể (Course)</label>
+                        <select id="enrCourseSelect" class="form-control">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="enrRatio">
+                                Hệ số học thực tế (Ratio)
+                                <span class="quick-preset-btn" onclick="setRatio(1.5)">1.5x</span>
+                                <span class="quick-preset-btn" onclick="setRatio(2)">2.0x</span>
+                                <span class="quick-preset-btn" onclick="setRatio(3)">3.0x</span>
+                                <span class="quick-preset-btn" onclick="setRatio(4)">4.0x</span>
+                            </label>
+                            <input type="number" id="enrRatio" class="form-control" min="0.5" max="10" step="0.5" value="3.0" required placeholder="Ví dụ: 3 (video 2h = thực tế 6h)">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="enrDailyHours">Thời lượng học mỗi ngày (giờ/ngày)</label>
+                            <input type="number" id="enrDailyHours" class="form-control" min="0.5" max="12" step="0.5" value="2.0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="enrStartDate">Ngày bắt đầu <span class="quick-date-btn" onclick="setToday('enrStartDate')">Hôm nay</span></label>
+                            <input type="date" id="enrStartDate" class="form-control" required>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="enrEndDate">Ngày kết thúc dự kiến <span class="auto-calc-tag">(Tự động tính)</span></label>
+                            <input type="date" id="enrEndDate" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="enrWorkweek">Chế độ làm việc hàng tuần</label>
+                        <select id="enrWorkweek" class="form-control" required>
+                            <option value="5">Thứ 2 - Thứ 6 (Bình thường)</option>
+                            <option value="6">Thứ 2 - Thứ 7 (Nước rút)</option>
+                            <option value="7">Tất cả các ngày trong tuần</option>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic calculation summary -->
+                    <div id="enrCalcSummary" class="calc-summary-wrapper">
+                        <!-- Auto updated via JS -->
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelEnrollmentModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Xác nhận Đăng ký</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Controller Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
