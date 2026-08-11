@@ -317,10 +317,13 @@ function onUserChanged() {
     currentUserNameLabel.textContent = nameDisplay;
     currentUserRoleLabel.textContent = state.currentUser.role;
     
-    // Check Authorization
+    // Check Authorization & Sidebar Visibility
     if (state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User") {
+        appSidebar.classList.remove("hidden");
         tabManagerLink.classList.remove("hidden");
     } else {
+        // Normal User (Employee): Hide Sidebar completely for a clean, distraction-free full-width dashboard
+        appSidebar.classList.add("hidden");
         tabManagerLink.classList.add("hidden");
         // Force navigate to personal progress if in Manager panel
         if (managerTab.classList.contains("active")) {
@@ -609,6 +612,20 @@ async function submitProgressForm(e) {
     }
 }
 
+// Global helper to drill-down into employee's personal detail
+window.viewEmployeeDetail = function(username) {
+    if (userSelector) {
+        const emp = state.users.find(u => u.username === username);
+        if (emp) {
+            userSelector.value = username;
+            state.currentUser = emp;
+            onUserChanged();
+            const tabEmployeeLink = document.querySelector('[data-tab="employee-tab"]');
+            if (tabEmployeeLink) tabEmployeeLink.click();
+        }
+    }
+};
+
 // TEAM PROGRESS VIEW FOR MANAGER
 function renderTeamProgressTable() {
     teamProgressTableBody.innerHTML = "";
@@ -621,6 +638,7 @@ function renderTeamProgressTable() {
         }
         
         const tr = document.createElement("tr");
+        const safeUsername = p.username.replace(/'/g, "\\'");
         tr.innerHTML = `
             <td><strong>${employeeName}</strong> <span class="text-muted font-mono font-sm">(${p.username})</span></td>
             <td>${p.course_name}</td>
@@ -635,12 +653,17 @@ function renderTeamProgressTable() {
                 </div>
             </td>
             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
+            <td class="actions-col">
+                <button class="btn btn-secondary btn-sm" onclick="viewEmployeeDetail('${safeUsername}')" title="Soi chi tiết tiến độ bài học của nhân viên này">
+                    <span class="material-icons-round font-sm">visibility</span> Chi tiết
+                </button>
+            </td>
         `;
         teamProgressTableBody.appendChild(tr);
     });
     
     if (state.progress.length === 0) {
-        teamProgressTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Chưa có bản ghi tiến độ nào của nhân viên.</td></tr>`;
+        teamProgressTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Chưa có bản ghi tiến độ nào của nhân viên.</td></tr>`;
     }
 }
 
