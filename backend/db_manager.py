@@ -166,6 +166,24 @@ def delete_course(course_name):
     wb.save(EXCEL_FILE)
     wb.close()
 
+import hashlib
+
+def get_avatar_url(name: str, email: str = "") -> str:
+    """Generate high-quality avatar URL using UI-Avatars / Gravatar."""
+    clean_name = (name or "User").strip().replace(" ", "+")
+    color_palette = ["3b82f6", "10b981", "8b5cf6", "ec4899", "f59e0b", "6366f1", "14b8a6"]
+    name_hash = sum(ord(c) for c in clean_name) % len(color_palette)
+    bg_color = color_palette[name_hash]
+    
+    ui_avatar = f"https://ui-avatars.com/api/?name={clean_name}&background={bg_color}&color=ffffff&bold=true&size=128&rounded=true"
+    
+    if email and "@" in email:
+        clean_email = email.strip().lower()
+        md5_hash = hashlib.md5(clean_email.encode("utf-8")).hexdigest()
+        return f"https://www.gravatar.com/avatar/{md5_hash}?s=128&d={ui_avatar}"
+    
+    return ui_avatar
+
 def get_employees():
     """Retrieve list of all employees."""
     init_db()
@@ -173,38 +191,40 @@ def get_employees():
     ws = wb["Danh sách nhân viên"]
     employees = []
     
-    has_english_col = (ws.cell(row=1, column=3).value == 'English Name')
-    
     for r in range(2, ws.max_row + 1):
         username = ws.cell(row=r, column=1).value
         fullname = ws.cell(row=r, column=2).value
-        if has_english_col:
-            english_name = ws.cell(row=r, column=3).value
-            role = ws.cell(row=r, column=4).value
-        else:
-            english_name = ""
-            role = ws.cell(row=r, column=3).value
+        english_name = ws.cell(row=r, column=3).value
+        role = ws.cell(row=r, column=4).value
+        email = ws.cell(row=r, column=5).value
             
         if username is not None and str(username).strip() != "":
+            fn = str(fullname).strip() if fullname else ""
+            en = str(english_name).strip() if english_name else ""
+            em = str(email).strip() if email else ""
+            name_for_avatar = en if en else fn
             employees.append({
                 "username": str(username).strip(),
-                "fullname": str(fullname).strip() if fullname else "",
-                "english_name": str(english_name).strip() if english_name else "",
-                "role": str(role).strip() if role else "Employee"
+                "fullname": fn,
+                "english_name": en,
+                "role": str(role).strip() if role else "Employee",
+                "email": em,
+                "avatar_url": get_avatar_url(name_for_avatar, em)
             })
     wb.close()
     return employees
 
-def save_employee(username, fullname, role, english_name=""):
+def save_employee(username, fullname, role, english_name="", email=""):
     """Add or update an employee."""
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Danh sách nhân viên"]
     
-    # Ensure header has English Name column
-    if ws.cell(row=1, column=3).value != 'English Name':
-        ws.cell(row=1, column=3).value = 'English Name'
-        ws.cell(row=1, column=4).value = 'Role'
+    ws.cell(row=1, column=1).value = 'Username'
+    ws.cell(row=1, column=2).value = 'Full Name'
+    ws.cell(row=1, column=3).value = 'English Name'
+    ws.cell(row=1, column=4).value = 'Role'
+    ws.cell(row=1, column=5).value = 'Email'
         
     found_row = None
     u_str = str(username).strip()
@@ -218,8 +238,9 @@ def save_employee(username, fullname, role, english_name=""):
         ws.cell(row=found_row, column=2).value = fullname
         ws.cell(row=found_row, column=3).value = english_name
         ws.cell(row=found_row, column=4).value = role
+        ws.cell(row=found_row, column=5).value = email
     else:
-        ws.append([u_str, fullname, english_name, role])
+        ws.append([u_str, fullname, english_name, role, email])
         
     wb.save(EXCEL_FILE)
     wb.close()

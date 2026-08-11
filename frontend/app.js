@@ -317,6 +317,12 @@ function onUserChanged() {
     currentUserNameLabel.textContent = nameDisplay;
     currentUserRoleLabel.textContent = state.currentUser.role;
     
+    // Update Avatar Images
+    const topAvatar = document.getElementById("topUserAvatar");
+    const personalAvatar = document.getElementById("personalAvatarImg");
+    if (topAvatar && state.currentUser.avatar_url) topAvatar.src = state.currentUser.avatar_url;
+    if (personalAvatar && state.currentUser.avatar_url) personalAvatar.src = state.currentUser.avatar_url;
+    
     // Check Authorization & Sidebar Visibility
     if (state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User") {
         appSidebar.classList.remove("hidden");
@@ -637,10 +643,20 @@ function renderTeamProgressTable() {
             employeeName = emp.english_name ? `${emp.fullname} (${emp.english_name})` : emp.fullname;
         }
         
+        const avatarUrl = emp && emp.avatar_url ? emp.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(employeeName)}&background=3b82f6&color=fff&bold=true`;
+        
         const tr = document.createElement("tr");
         const safeUsername = p.username.replace(/'/g, "\\'");
         tr.innerHTML = `
-            <td><strong>${employeeName}</strong> <span class="text-muted font-mono font-sm">(${p.username})</span></td>
+            <td>
+                <div class="user-cell-with-avatar">
+                    <img src="${avatarUrl}" class="table-user-avatar" alt="Avatar">
+                    <div>
+                        <strong>${employeeName}</strong>
+                        <div class="text-muted font-mono font-xs">ID: ${p.username}</div>
+                    </div>
+                </div>
+            </td>
             <td>${p.course_name}</td>
             <td>${p.path || "-"}</td>
             <td>${p.module_name}</td>
@@ -674,13 +690,20 @@ function renderEmployeeMgmtTable() {
         const tr = document.createElement("tr");
         const safeFullname = (u.fullname || "").replace(/'/g, "\\'");
         const safeEngName = (u.english_name || "").replace(/'/g, "\\'");
+        const safeEmail = (u.email || "").replace(/'/g, "\\'");
         tr.innerHTML = `
             <td><span class="font-mono">${u.username}</span></td>
-            <td><strong>${u.fullname}</strong></td>
+            <td>
+                <div class="user-cell-with-avatar">
+                    <img src="${u.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(u.fullname)}" class="table-user-avatar" alt="Avatar">
+                    <strong>${u.fullname}</strong>
+                </div>
+            </td>
             <td><span class="text-secondary">${u.english_name || "-"}</span></td>
+            <td><span class="font-mono font-xs text-muted">${u.email || "-"}</span></td>
             <td><span class="role-badge">${u.role}</span></td>
             <td class="actions-col">
-                <button class="btn btn-secondary btn-sm" onclick="openEditEmployee('${u.username}', '${safeFullname}', '${safeEngName}', '${u.role}')">
+                <button class="btn btn-secondary btn-sm" onclick="openEditEmployee('${u.username}', '${safeFullname}', '${safeEngName}', '${u.role}', '${safeEmail}')">
                     <span class="material-icons-round font-sm">edit</span>
                 </button>
                 <button class="btn btn-danger btn-sm" onclick="deleteEmployeeRecord('${u.username}')">
@@ -692,13 +715,14 @@ function renderEmployeeMgmtTable() {
     });
 }
 
-window.openEditEmployee = function(username, fullname, english_name, role) {
+window.openEditEmployee = function(username, fullname, english_name, role, email) {
     document.getElementById("employeeModalTitle").textContent = "Cập nhật nhân viên";
     document.getElementById("empUsername").value = username;
     document.getElementById("empUsername").disabled = true;
     document.getElementById("empFullname").value = fullname;
     document.getElementById("empEnglishName").value = english_name || "";
     document.getElementById("empRole").value = role;
+    document.getElementById("empEmail").value = email || "";
     showModal(employeeModal);
 };
 
@@ -724,7 +748,8 @@ async function submitEmployeeForm(e) {
         username: document.getElementById("empUsername").value,
         fullname: document.getElementById("empFullname").value,
         english_name: document.getElementById("empEnglishName").value || "",
-        role: document.getElementById("empRole").value
+        role: document.getElementById("empRole").value,
+        email: document.getElementById("empEmail").value || ""
     };
     
     try {

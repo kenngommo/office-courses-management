@@ -144,9 +144,44 @@ body {
     border: 1px solid var(--border-glass);
 }
 
-.selector-icon {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
+.user-avatar-top {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid var(--color-blue);
+    flex-shrink: 0;
+}
+
+.header-user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--color-blue);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+    flex-shrink: 0;
+}
+
+.table-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-glass);
+    flex-shrink: 0;
+}
+
+.user-cell-with-avatar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.flex-align-center {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .user-select-dropdown {

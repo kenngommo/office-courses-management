@@ -52,6 +52,7 @@ class EmployeeRequest(BaseModel):
     fullname: str
     english_name: Optional[str] = ""
     role: str
+    email: Optional[str] = ""
 
 class ProgressUpdateRequest(BaseModel):
     username: str
@@ -102,11 +103,9 @@ def api_get_employees():
         raise HTTPException(status_code=500, detail=f"Error reading employees: {str(e)}")
 
 @app.post("/api/employees")
-def api_save_employee(req: EmployeeRequest):
+def api_add_employee(req: EmployeeRequest):
     try:
-        if not req.username.strip():
-            raise HTTPException(status_code=400, detail="Username cannot be empty")
-        save_employee(req.username.strip(), req.fullname.strip(), req.role.strip(), (req.english_name or "").strip())
+        save_employee(req.username.strip(), req.fullname.strip(), req.role.strip(), (req.english_name or "").strip(), (req.email or "").strip())
         return {"status": "success", "message": f"Saved employee: {req.username}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving employee: {str(e)}")

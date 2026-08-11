@@ -29,7 +29,7 @@
             <div class="header-right">
                 <!-- User Simulator Dropdown -->
                 <div class="user-selector-container">
-                    <span class="material-icons-round selector-icon">account_circle</span>
+                    <img id="topUserAvatar" class="user-avatar-top" src="" alt="Avatar">
                     <select id="userSelector" class="user-select-dropdown">
                         <!-- Populated dynamically via JS -->
                     </select>
@@ -68,9 +68,12 @@
                 
                 <section id="employee-tab" class="tab-pane active">
                     <div class="pane-header flex-header">
-                        <div class="header-title-sec-wrap">
-                            <h2>Bảng tiến độ cá nhân: <span id="currentUserNameLabel">...</span></h2>
-                            <span class="role-badge" id="currentUserRoleLabel">Employee</span>
+                        <div class="header-title-sec-wrap flex-align-center">
+                            <img id="personalAvatarImg" class="header-user-avatar" src="" alt="Avatar">
+                            <div>
+                                <h2>Bảng tiến độ cá nhân: <span id="currentUserNameLabel">...</span></h2>
+                                <span class="role-badge" id="currentUserRoleLabel">Employee</span>
+                            </div>
                         </div>
                         <div class="course-filter-container">
                             <label for="courseFilter">Xem theo Khóa học:</label>
@@ -262,6 +265,7 @@
                                             <th>Tên tài khoản (Username)</th>
                                             <th>Họ và tên (Tiếng Việt)</th>
                                             <th>Tên Tiếng Anh</th>
+                                            <th>Email</th>
                                             <th>Quyền hạn (Role)</th>
                                             <th class="actions-col">Hành động</th>
                                         </tr>
@@ -413,6 +417,10 @@
                     <div class="form-group">
                         <label for="empEnglishName">Tên tiếng Anh (English Name)</label>
                         <input type="text" id="empEnglishName" class="form-control" placeholder="E.g. Liam Le">
+                    </div>
+                    <div class="form-group">
+                        <label for="empEmail">Địa chỉ Email (để nạp Avatar)</label>
+                        <input type="email" id="empEmail" class="form-control" placeholder="E.g. Lam.Le@AreteEPM.com">
                     </div>
                     <div class="form-group">
                         <label for="empRole">Quyền hạn</label>
