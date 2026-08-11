@@ -66,13 +66,7 @@ class ProgressUpdateRequest(BaseModel):
 
 # --- API Endpoints ---
 
-from fastapi.responses import RedirectResponse, FileResponse
-
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
-
-@app.get("/")
-def read_root():
-    return RedirectResponse(url="/index.html")
 
 # 1. Course Endpoints
 @app.get("/api/courses")
