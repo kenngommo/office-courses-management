@@ -206,6 +206,14 @@ def api_delete_enrollment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting enrollment: {str(e)}")
 
-# Mount the frontend static files
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+from fastapi.responses import Response
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
+
+# Mount the frontend static files using absolute path
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
 
