@@ -70,9 +70,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     setupEventHandlers();
     await refreshData();
     
-    // Set initial active user if available
+    // Set initial active user (default to Super User if available)
     if (state.users.length > 0) {
-        state.currentUser = state.users[0];
+        const defaultUser = state.users.find(u => u.role === "Super User") || 
+                            state.users.find(u => u.role === "Manager" || u.role === "Power User") || 
+                            state.users[0];
+        state.currentUser = defaultUser;
         userSelector.value = state.currentUser.username;
         onUserChanged();
     }
