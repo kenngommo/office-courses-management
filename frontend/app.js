@@ -273,14 +273,22 @@ function setupEventHandlers() {
         });
     });
 
-    // Auto calculate End Date on input changes
-    ["enrStartDate", "enrRatio", "enrDailyHours", "enrPlanSelect", "enrCourseSelect", "enrWorkweek"].forEach(id => {
+    // 2-Way Sync Event Listeners for Enrollment Modal
+    // Direction A: Ratio / Start Date / Plan / Course / Daily Hours / Workweek -> Calculate End Date
+    ["enrRatio", "enrStartDate", "enrDailyHours", "enrPlanSelect", "enrCourseSelect", "enrWorkweek"].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener("input", calculateAutoEndDate);
-            el.addEventListener("change", calculateAutoEndDate);
+            el.addEventListener("input", recalculateEndDateFromRatio);
+            el.addEventListener("change", recalculateEndDateFromRatio);
         }
     });
+
+    // Direction B: End Date -> Calculate Ratio
+    const enrEndDateInput = document.getElementById("enrEndDate");
+    if (enrEndDateInput) {
+        enrEndDateInput.addEventListener("input", recalculateRatioFromEndDate);
+        enrEndDateInput.addEventListener("change", recalculateRatioFromEndDate);
+    }
 
     // Add module row to catalog designer
     document.getElementById("btnAddModuleRow").onclick = () => {
@@ -997,38 +1005,27 @@ window.setRatio = function(val) {
     const input = document.getElementById("enrRatio");
     if (input) {
         input.value = val;
-        calculateAutoEndDate();
+        recalculateEndDateFromRatio();
     }
 };
 
-// AUTO CALCULATE END DATE BASED ON PLAN/COURSE, RATIO, START DATE, WORKWEEK
-function calculateAutoEndDate() {
+let isSyncingEnrollment = false;
+
+function getSelectedTargetType() {
     const radios = document.getElementsByName("enrTargetType");
-    let targetType = "plan";
     for (const r of radios) {
-        if (r.checked) {
-            targetType = r.value;
-            break;
-        }
+        if (r.checked) return r.value;
     }
-    
-    const startDateVal = document.getElementById("enrStartDate").value;
-    const ratioVal = parseFloat(document.getElementById("enrRatio").value) || 3.0;
-    const dailyHoursVal = parseFloat(document.getElementById("enrDailyHours").value) || 2.0;
-    const workweekType = parseInt(document.getElementById("enrWorkweek").value) || 5;
-    
+    return "plan";
+}
+
+function getSelectedTargetName(targetType) {
     const planSelect = document.getElementById("enrPlanSelect");
     const courseSelect = document.getElementById("enrCourseSelect");
-    const targetName = (targetType === "plan") ? planSelect.value : courseSelect.value;
-    
-    const summaryEl = document.getElementById("enrCalcSummary");
+    return (targetType === "plan") ? (planSelect ? planSelect.value : "") : (courseSelect ? courseSelect.value : "");
+}
 
-    if (!startDateVal || !targetName) {
-        if (summaryEl) summaryEl.innerHTML = "";
-        return;
-    }
-
-    // 1. Calculate raw total video minutes for target
+function getTargetVideoMinutes(targetType, targetName) {
     let totalMins = 0;
     let moduleCount = 0;
     if (targetType === "plan") {
@@ -1040,34 +1037,20 @@ function calculateAutoEndDate() {
         totalMins = matching.reduce((sum, c) => sum + (c.duration_minutes || 0), 0);
         moduleCount = matching.length;
     }
+    return { totalMins, moduleCount };
+}
 
-    // 2. Apply ratio
-    const adjustedMins = Math.round(totalMins * ratioVal);
-    const adjustedHours = adjustedMins / 60.0;
-
-    // 3. Determine required working days
-    const requiredDays = Math.max(1, Math.ceil(adjustedHours / dailyHoursVal));
-
-    // Update summary box
-    if (summaryEl) {
-        summaryEl.innerHTML = `
-            <div class="calc-info-box font-sm glass">
-                <div class="calc-info-row">
-                    <span><span class="material-icons-round font-xs">videocam</span> Video gốc: <strong>${formatHoursMinutes(totalMins)}</strong> (${moduleCount} modules)</span>
-                    <span><span class="material-icons-round font-xs">tune</span> Hệ số Ratio: <strong class="text-primary">${ratioVal}x</strong></span>
-                </div>
-                <div class="calc-info-row mt-1">
-                    <span><span class="material-icons-round font-xs">timer</span> Thời lượng thực tế: <strong class="text-success">${formatHoursMinutes(adjustedMins)} (${adjustedHours.toFixed(1)}h)</strong></span>
-                    <span><span class="material-icons-round font-xs">event</span> Dự kiến cần: <strong>${requiredDays} ngày học</strong> (${dailyHoursVal}h/ngày)</span>
-                </div>
-            </div>
-        `;
+function countWorkingDaysBetween(startDateStr, endDateStr, workweekType) {
+    let start = new Date(startDateStr);
+    let end = new Date(endDateStr);
+    if (isNaN(start.getTime())) return 1;
+    if (isNaN(end.getTime()) || end < start) {
+        end = new Date(start);
     }
-
-    // 4. Calculate End Date by adding requiredDays working days
-    let curr = new Date(startDateVal);
-    let added = 0;
-    while (added < requiredDays) {
+    
+    let count = 0;
+    let curr = new Date(start);
+    while (curr <= end) {
         const day = curr.getDay(); // 0 = Sun, 6 = Sat
         let isWorkDay = true;
         if (workweekType === 5) {
@@ -1075,15 +1058,128 @@ function calculateAutoEndDate() {
         } else if (workweekType === 6) {
             if (day === 0) isWorkDay = false;
         }
-        
         if (isWorkDay) {
-            added++;
-            if (added >= requiredDays) break;
+            count++;
         }
         curr.setDate(curr.getDate() + 1);
     }
+    return Math.max(1, count);
+}
 
-    document.getElementById("enrEndDate").value = curr.toISOString().split("T")[0];
+function updateSummaryBox(totalMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal) {
+    const summaryEl = document.getElementById("enrCalcSummary");
+    if (!summaryEl) return;
+    
+    if (totalMins <= 0 || requiredDays <= 0) {
+        summaryEl.innerHTML = "";
+        return;
+    }
+    
+    const adjustedHours = adjustedMins / 60.0;
+    summaryEl.innerHTML = `
+        <div class="calc-info-box font-sm glass">
+            <div class="calc-info-row">
+                <span><span class="material-icons-round font-xs">videocam</span> Video gốc: <strong>${formatHoursMinutes(totalMins)}</strong> (${moduleCount} modules)</span>
+                <span><span class="material-icons-round font-xs">tune</span> Hệ số Ratio: <strong class="text-primary">${ratioVal}x</strong></span>
+            </div>
+            <div class="calc-info-row mt-1">
+                <span><span class="material-icons-round font-xs">timer</span> Thời lượng thực tế: <strong class="text-success">${formatHoursMinutes(adjustedMins)} (${adjustedHours.toFixed(1)}h)</strong></span>
+                <span><span class="material-icons-round font-xs">event</span> Dự kiến cần: <strong>${requiredDays} ngày học</strong> (${dailyHoursVal}h/ngày)</span>
+            </div>
+        </div>
+    `;
+}
+
+// 1. DIRECTION A: When Ratio / Start Date / Plan / Workweek / Daily Hours change -> Calculate End Date
+function recalculateEndDateFromRatio() {
+    if (isSyncingEnrollment) return;
+    isSyncingEnrollment = true;
+    try {
+        const targetType = getSelectedTargetType();
+        const targetName = getSelectedTargetName(targetType);
+        const startDateVal = document.getElementById("enrStartDate").value;
+        const ratioVal = parseFloat(document.getElementById("enrRatio").value) || 1.0;
+        const dailyHoursVal = parseFloat(document.getElementById("enrDailyHours").value) || 2.0;
+        const workweekType = parseInt(document.getElementById("enrWorkweek").value) || 5;
+
+        if (!startDateVal || !targetName) {
+            updateSummaryBox(0, 0, 0, 0, 0, 0);
+            return;
+        }
+
+        const { totalMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
+        if (totalMins <= 0) {
+            updateSummaryBox(0, moduleCount, ratioVal, 0, 0, dailyHoursVal);
+            return;
+        }
+
+        const adjustedMins = Math.round(totalMins * ratioVal);
+        const adjustedHours = adjustedMins / 60.0;
+        const requiredDays = Math.max(1, Math.ceil(adjustedHours / dailyHoursVal));
+
+        // Calculate End Date
+        let curr = new Date(startDateVal);
+        let added = 0;
+        while (added < requiredDays) {
+            const day = curr.getDay(); // 0 = Sun, 6 = Sat
+            let isWorkDay = true;
+            if (workweekType === 5) {
+                if (day === 0 || day === 6) isWorkDay = false;
+            } else if (workweekType === 6) {
+                if (day === 0) isWorkDay = false;
+            }
+            
+            if (isWorkDay) {
+                added++;
+                if (added >= requiredDays) break;
+            }
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        document.getElementById("enrEndDate").value = curr.toISOString().split("T")[0];
+        updateSummaryBox(totalMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal);
+    } finally {
+        isSyncingEnrollment = false;
+    }
+}
+
+// 2. DIRECTION B: When End Date changes -> Calculate Ratio
+function recalculateRatioFromEndDate() {
+    if (isSyncingEnrollment) return;
+    isSyncingEnrollment = true;
+    try {
+        const targetType = getSelectedTargetType();
+        const targetName = getSelectedTargetName(targetType);
+        const startDateVal = document.getElementById("enrStartDate").value;
+        const endDateVal = document.getElementById("enrEndDate").value;
+        const dailyHoursVal = parseFloat(document.getElementById("enrDailyHours").value) || 2.0;
+        const workweekType = parseInt(document.getElementById("enrWorkweek").value) || 5;
+
+        if (!startDateVal || !endDateVal || !targetName) return;
+
+        const { totalMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
+        if (totalMins <= 0) return;
+
+        const actualWorkingDays = countWorkingDaysBetween(startDateVal, endDateVal, workweekType);
+        const totalAvailableStudyHours = actualWorkingDays * dailyHoursVal;
+        const rawVideoHours = totalMins / 60.0;
+
+        // Calculate Ratio = available study hours / raw video hours
+        let computedRatio = totalAvailableStudyHours / rawVideoHours;
+        computedRatio = Math.max(0.1, Math.round(computedRatio * 10) / 10);
+
+        document.getElementById("enrRatio").value = computedRatio;
+
+        const adjustedMins = Math.round(totalMins * computedRatio);
+        updateSummaryBox(totalMins, moduleCount, computedRatio, adjustedMins, actualWorkingDays, dailyHoursVal);
+    } finally {
+        isSyncingEnrollment = false;
+    }
+}
+
+// Legacy helper compatibility
+function calculateAutoEndDate() {
+    recalculateEndDateFromRatio();
 }
 
 // COURSE ENROLLMENTS (ASSIGNMENTS) MANAGEMENT
