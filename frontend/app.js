@@ -719,11 +719,16 @@ async function submitEmployeeForm(e) {
 }
 
 // Helper for formatting duration into hours and minutes
-function formatHoursMinutes(totalMinutes) {
+function formatHoursMinutes(totalMinutes, formatType = "long") {
     const mins = parseInt(totalMinutes) || 0;
-    if (mins <= 0) return "0 phút";
+    if (mins <= 0) return formatType === "short" ? "0m" : "0 phút";
     const h = Math.floor(mins / 60);
     const m = mins % 60;
+    if (formatType === "short") {
+        if (h > 0 && m > 0) return `${h}h${m}m`;
+        if (h > 0) return `${h}h`;
+        return `${m}m`;
+    }
     if (h > 0 && m > 0) return `${h} giờ ${m} phút`;
     if (h > 0) return `${h} giờ`;
     return `${m} phút`;
@@ -833,7 +838,7 @@ function renderCourseMgmtTable() {
         courseKeys.forEach(cKey => {
             courseIdx++;
             const courseObj = plan.courses[cKey];
-            const courseDurationFormatted = formatHoursMinutes(courseObj.totalMinutes);
+            const courseDurationFormatted = formatHoursMinutes(courseObj.totalMinutes, "short");
             const courseCardId = `course-card-${planIdx}-${courseIdx}`;
             
             const courseCard = document.createElement("div");
@@ -855,14 +860,16 @@ function renderCourseMgmtTable() {
                         </div>
                     </div>
                     <div class="level2-right">
-                        <span class="font-sm text-secondary mr-2">
-                            <span class="material-icons-round font-xs">view_module</span> ${courseObj.modules.length} modules
-                        </span>
-                        <span class="font-sm text-secondary mr-3 font-mono">
-                            <span class="material-icons-round font-xs">schedule</span> ${courseDurationFormatted}
-                        </span>
-                        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteCourseRecord('${safeCourseName}')" title="Xóa toàn bộ khóa học này">
-                            <span class="material-icons-round font-xs">delete</span> Xóa khóa
+                        <div class="course-stat-item">
+                            <span class="material-icons-round">grid_view</span>
+                            <span><strong>${courseObj.modules.length}</strong> modules</span>
+                        </div>
+                        <div class="course-stat-item">
+                            <span class="material-icons-round">schedule</span>
+                            <span class="font-mono font-weight-bold">${courseDurationFormatted}</span>
+                        </div>
+                        <button class="btn btn-danger btn-icon-only btn-sm" onclick="event.stopPropagation(); deleteCourseRecord('${safeCourseName}')" title="Xóa khóa học">
+                            <span class="material-icons-round">delete</span>
                         </button>
                     </div>
                 </div>
