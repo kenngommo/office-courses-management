@@ -243,8 +243,8 @@ function setupEventHandlers() {
     }
 
     document.getElementById("btnOpenAddEnrollment").onclick = () => {
-        populateEnrollmentOptions();
         enrollmentForm.reset();
+        populateEnrollmentOptions();
         showModal(enrollmentModal);
     };
 
