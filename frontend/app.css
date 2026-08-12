@@ -1252,15 +1252,46 @@ body {
 }
 
 /* Level 3 Modules Container */
-.level3-modules-container {
+.level3-modules-container,
+.level4-modules-container {
     display: none;
     padding: 1rem 1.2rem;
     background: rgba(0, 0, 0, 0.25);
     border-top: 1px dashed var(--border-glass);
 }
 
-.level2-card.expanded .level3-modules-container {
+.level2-card.expanded > .level3-modules-container,
+.level3-card.expanded > .level4-modules-container {
     display: block;
+}
+
+/* Level 3 Card (Course Card inside Plan Card) */
+.level3-card {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-glass);
+    overflow: hidden;
+    margin-top: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.level3-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    user-select: none;
+    gap: 1rem;
+}
+
+.level3-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.level3-card.expanded .toggle-arrow {
+    transform: rotate(90deg);
 }
 
 .level3-module-table {

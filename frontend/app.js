@@ -961,10 +961,12 @@ function setupEventHandlers() {
         btnExpandAllTeamPlans.onclick = () => {
             document.querySelectorAll("#teamHierarchyContainer .level1-card").forEach(c => c.classList.add("expanded"));
             document.querySelectorAll("#teamHierarchyContainer .level2-card").forEach(c => c.classList.add("expanded"));
+            document.querySelectorAll("#teamHierarchyContainer .level3-card").forEach(c => c.classList.add("expanded"));
         };
         btnCollapseAllTeamPlans.onclick = () => {
             document.querySelectorAll("#teamHierarchyContainer .level1-card").forEach(c => c.classList.remove("expanded"));
             document.querySelectorAll("#teamHierarchyContainer .level2-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#teamHierarchyContainer .level3-card").forEach(c => c.classList.remove("expanded"));
         };
     }
 
@@ -1402,13 +1404,14 @@ window.viewEmployeeDetail = function(username) {
     }
 };
 
-// TEAM PROGRESS HIERARCHICAL VIEW FOR MANAGER (LEVEL 1: USER -> LEVEL 2: PLAN -> LEVEL 3: COURSE/MODULES)
+// TEAM PROGRESS HIERARCHICAL VIEW FOR MANAGER (LEVEL 1: USER -> LEVEL 2: PLAN -> LEVEL 3: COURSE -> LEVEL 4: MODULES TABLE)
 function renderTeamProgressTable() {
     if (!teamHierarchyContainer) return;
 
     // Preserve expanded card state
     const expandedUsernames = new Set();
     const expandedUserPlanKeys = new Set();
+    const expandedUserCourseKeys = new Set();
 
     document.querySelectorAll("#teamHierarchyContainer .level1-card.expanded").forEach(c => {
         const usernameTag = c.getAttribute("data-username");
@@ -1417,6 +1420,10 @@ function renderTeamProgressTable() {
     document.querySelectorAll("#teamHierarchyContainer .level2-card.expanded").forEach(c => {
         const planKeyTag = c.getAttribute("data-user-plan-key");
         if (planKeyTag) expandedUserPlanKeys.add(planKeyTag);
+    });
+    document.querySelectorAll("#teamHierarchyContainer .level3-card.expanded").forEach(c => {
+        const courseKeyTag = c.getAttribute("data-user-course-key");
+        if (courseKeyTag) expandedUserCourseKeys.add(courseKeyTag);
     });
 
     teamHierarchyContainer.innerHTML = "";
@@ -1431,7 +1438,7 @@ function renderTeamProgressTable() {
         return;
     }
 
-    // Group state.progress by User -> Plan -> Modules
+    // Group state.progress by User -> Plan -> Course -> Module Records
     const userMap = {};
 
     state.progress.forEach(p => {
@@ -1455,20 +1462,34 @@ function renderTeamProgressTable() {
             };
         }
 
-        // Determine plan name
+        // Determine plan name & course name
         const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
         const planName = p.plan || (matchCourse ? matchCourse.plan : "Khóa học khác");
+        const courseKey = p.path ? `${p.course_name}:::${p.path}` : p.course_name;
 
         if (!userMap[username].plans[planName]) {
             userMap[username].plans[planName] = {
                 planName: planName,
+                courses: {},
+                totalModules: 0,
+                completedModules: 0
+            };
+        }
+
+        if (!userMap[username].plans[planName].courses[courseKey]) {
+            userMap[username].plans[planName].courses[courseKey] = {
+                course_name: p.course_name,
+                path: p.path || "",
                 records: [],
                 totalModules: 0,
                 completedModules: 0
             };
         }
 
-        userMap[username].plans[planName].records.push(p);
+        userMap[username].plans[planName].courses[courseKey].records.push(p);
+        userMap[username].plans[planName].courses[courseKey].totalModules += 1;
+        if (p.status === "Completed") userMap[username].plans[planName].courses[courseKey].completedModules += 1;
+
         userMap[username].plans[planName].totalModules += 1;
         if (p.status === "Completed") userMap[username].plans[planName].completedModules += 1;
 
@@ -1494,7 +1515,7 @@ function renderTeamProgressTable() {
 
         // Level 1: User / Employee Header
         userCard.innerHTML = `
-            <div class="level1-header" onclick="toggleLevel1('${userCardId}')">
+            <div class="level1-header" onclick="toggleCard('${userCardId}')">
                 <div class="level1-title-sec">
                     <span class="material-icons-round level1-chevron">keyboard_arrow_right</span>
                     <img src="${userData.avatar_url}" class="table-user-avatar mr-2" alt="Avatar" style="width:36px; height:36px; border-radius:50%; border:2px solid var(--color-blue);">
@@ -1526,6 +1547,8 @@ function renderTeamProgressTable() {
             const userPlanKey = `${userData.username}:::${planObj.planName}`;
             const planCardId = `team-plan-card-${userIdx}-${planIdx}`;
             const planPercent = planObj.totalModules > 0 ? Math.round((planObj.completedModules / planObj.totalModules) * 100) : 0;
+            const courseKeys = Object.keys(planObj.courses);
+            const courseCount = courseKeys.length;
 
             const planCard = document.createElement("div");
             planCard.className = "level2-card";
@@ -1537,9 +1560,9 @@ function renderTeamProgressTable() {
 
             // Level 2: Plan Card HTML
             planCard.innerHTML = `
-                <div class="level2-header" onclick="toggleLevel2Modules('${planCardId}', event)">
+                <div class="level2-header" onclick="toggleCard('${planCardId}', event)">
                     <div class="level2-left">
-                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleLevel2Modules('${planCardId}', event)" title="Xổ ra / Thu gọn các khóa học">
+                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleCard('${planCardId}', event)" title="Xổ ra / Thu gọn các khóa học">
                             <span class="toggle-arrow">&gt;</span>
                         </button>
                         <div class="course-info">
@@ -1549,71 +1572,118 @@ function renderTeamProgressTable() {
                     </div>
                     <div class="level2-right flex-align-center gap-2">
                         <div class="course-stat-item">
-                            <span class="material-icons-round">book</span>
+                            <span class="material-icons-round">menu_book</span>
+                            <span><strong>${courseCount}</strong> ${state.lang === 'en' ? 'courses' : 'khóa học'}</span>
+                        </div>
+                        <div class="course-stat-item">
+                            <span class="material-icons-round">task_alt</span>
                             <span><strong>${planObj.completedModules}/${planObj.totalModules}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</span>
                         </div>
                     </div>
                 </div>
-                <div class="level3-modules-container">
-                    <table class="level3-module-table data-table">
-                        <thead>
-                            <tr>
-                                <th>${t("col_course")}</th>
-                                <th>${t("col_module")}</th>
-                                <th>${t("col_duration")}</th>
-                                <th>${t("col_target_date")}</th>
-                                <th>${t("col_progress")}</th>
-                                <th>${t("col_status")}</th>
-                                <th>${t("col_tracking")}</th>
-                                <th class="actions-col">${t("col_actions")}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${planObj.records.map(p => {
-                                const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
-                                const durationText = matchCourse ? `${matchCourse.duration_minutes || 0}m` : '-';
-                                const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
-                                const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
-                                const safeCourse = p.course_name.replace(/'/g, "\\'");
-                                const safePath = (p.path || "").replace(/'/g, "\\'");
-                                const safeMod = p.module_name.replace(/'/g, "\\'");
-                                const safeStart = (p.start_date || "").replace(/'/g, "\\'");
-                                const safeComp = (p.completion_date || "").replace(/'/g, "\\'");
-                                const safeTarget = (p.planned_completion_date || "").replace(/'/g, "\\'");
-
-                                return `
-                                    <tr>
-                                        <td>
-                                            <strong>${p.course_name}</strong>
-                                            ${p.path ? `<div class="text-secondary font-xs">${p.path}</div>` : ''}
-                                        </td>
-                                        <td>
-                                            <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ' : 'Bài học nội dung'}">${teamModIcon}</span>
-                                            <strong>${p.module_name}</strong>
-                                            ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
-                                        </td>
-                                        <td><span class="font-mono text-secondary">${durationText}</span></td>
-                                        <td><span class="font-mono text-secondary">${p.planned_completion_date || '-'}</span></td>
-                                        <td>
-                                            <div class="prog-bar-cell">
-                                                <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${p.progress_percent}%"></div></div>
-                                                <span class="font-mono">${p.progress_percent}%</span>
-                                            </div>
-                                        </td>
-                                        <td>${getStatusBadge(p.status)}</td>
-                                        <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
-                                        <td class="actions-col">
-                                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
-                                                <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
+                <div class="level3-body p-2" style="display:none; flex-direction:column; gap:0.5rem; background:rgba(0,0,0,0.15);">
+                    <!-- Level 3 courses list -->
                 </div>
             `;
+
+            // Expand style injection for level3-body container inside level2-card
+            planCard.insertAdjacentHTML("beforeend", `<style>#${planCardId}.expanded > .level3-body { display: flex !important; }</style>`);
+
+            const level3Body = planCard.querySelector(".level3-body");
+
+            let courseIdx = 0;
+            courseKeys.forEach(cKey => {
+                courseIdx++;
+                const courseObj = planObj.courses[cKey];
+                const userCourseKey = `${userData.username}:::${planObj.planName}:::${courseObj.course_name}`;
+                const courseCardId = `team-course-card-${userIdx}-${planIdx}-${courseIdx}`;
+                const coursePercent = courseObj.totalModules > 0 ? Math.round((courseObj.completedModules / courseObj.totalModules) * 100) : 0;
+
+                const courseCard = document.createElement("div");
+                courseCard.className = "level3-card";
+                courseCard.setAttribute("data-user-course-key", userCourseKey);
+                if (expandedUserCourseKeys.has(userCourseKey)) {
+                    courseCard.classList.add("expanded");
+                }
+                courseCard.id = courseCardId;
+
+                // Level 3: Course Card HTML
+                courseCard.innerHTML = `
+                    <div class="level3-header" onclick="toggleCard('${courseCardId}', event)">
+                        <div class="level2-left">
+                            <button type="button" class="toggle-modules-btn font-mono" onclick="toggleCard('${courseCardId}', event)" title="Xổ ra / Thu gọn danh sách module">
+                                <span class="toggle-arrow">&gt;</span>
+                            </button>
+                            <div class="course-info">
+                                <h4 class="course-title" style="font-size:0.9rem;"><span class="material-icons-round font-sm text-warning mr-1" style="vertical-align:middle;">import_contacts</span> ${courseObj.course_name}</h4>
+                                ${courseObj.path ? `<span class="path-pill"><span class="material-icons-round font-xs">alt_route</span> Lộ trình: ${courseObj.path}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="level2-right flex-align-center gap-2">
+                            <div class="course-stat-item" style="font-size:0.8rem;">
+                                <span class="material-icons-round" style="font-size:1rem;">check_circle</span>
+                                <span><strong>${courseObj.completedModules}/${courseObj.totalModules}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'} (${coursePercent}%)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="level4-modules-container">
+                        <table class="level3-module-table data-table">
+                            <thead>
+                                <tr>
+                                    <th>${t("col_module")}</th>
+                                    <th>${t("col_duration")}</th>
+                                    <th>${t("col_target_date")}</th>
+                                    <th>${t("col_progress")}</th>
+                                    <th>${t("col_status")}</th>
+                                    <th>${t("col_tracking")}</th>
+                                    <th class="actions-col">${t("col_actions")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${courseObj.records.map(p => {
+                                    const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
+                                    const durationText = matchCourse ? `${matchCourse.duration_minutes || 0}m` : '-';
+                                    const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
+                                    const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
+                                    const safeCourse = p.course_name.replace(/'/g, "\\'");
+                                    const safePath = (p.path || "").replace(/'/g, "\\'");
+                                    const safeMod = p.module_name.replace(/'/g, "\\'");
+                                    const safeStart = (p.start_date || "").replace(/'/g, "\\'");
+                                    const safeComp = (p.completion_date || "").replace(/'/g, "\\'");
+                                    const safeTarget = (p.planned_completion_date || "").replace(/'/g, "\\'");
+
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ' : 'Bài học nội dung'}">${teamModIcon}</span>
+                                                <strong>${p.module_name}</strong>
+                                                ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
+                                            </td>
+                                            <td><span class="font-mono text-secondary">${durationText}</span></td>
+                                            <td><span class="font-mono text-secondary">${p.planned_completion_date || '-'}</span></td>
+                                            <td>
+                                                <div class="prog-bar-cell">
+                                                    <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${p.progress_percent}%"></div></div>
+                                                    <span class="font-mono">${p.progress_percent}%</span>
+                                                </div>
+                                            </td>
+                                            <td>${getStatusBadge(p.status)}</td>
+                                            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
+                                            <td class="actions-col">
+                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
+                                                    <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                level3Body.appendChild(courseCard);
+            });
 
             level2Body.appendChild(planCard);
         });
@@ -2878,6 +2948,14 @@ window.setDateOffset = function(inputId, days) {
         d.setDate(d.getDate() + days);
         input.value = d.toISOString().split("T")[0];
         calculateAutoEndDate();
+    }
+};
+
+window.toggleCard = function(cardId, event) {
+    if (event) event.stopPropagation();
+    const el = document.getElementById(cardId);
+    if (el) {
+        el.classList.toggle("expanded");
     }
 };
 
