@@ -122,6 +122,17 @@ const i18n = {
         btn_active: "Active",
         btn_inactive: "Inactive",
 
+        modal_progress_title: "Cập nhật tiến độ học tập",
+        lbl_course: "Khóa học:",
+        lbl_module: "Học phần:",
+        lbl_study_status: "Trạng thái học tập",
+        lbl_progress_percent: "Tiến trình (%)",
+        lbl_comp_date: "Ngày hoàn thành",
+        lbl_target_date: "Hạn hoàn thành",
+        btn_today: "Hôm nay",
+        btn_cancel: "Hủy",
+        btn_save_update: "Lưu cập nhật",
+
         login_subtitle: "Đăng nhập để xem lộ trình học và tiến độ đào tạo",
         lbl_remember_me: "Lưu thông tin đăng nhập",
         lbl_forgot_password: "Quên mật khẩu?",
@@ -236,6 +247,17 @@ const i18n = {
         btn_add_module: "Add Module",
         btn_active: "Active",
         btn_inactive: "Inactive",
+
+        modal_progress_title: "Update Learning Progress",
+        lbl_course: "Course:",
+        lbl_module: "Module:",
+        lbl_study_status: "Study Status",
+        lbl_progress_percent: "Progress (%)",
+        lbl_comp_date: "Completion Date",
+        lbl_target_date: "Target Deadline",
+        btn_today: "Today",
+        btn_cancel: "Cancel",
+        btn_save_update: "Save Progress",
 
         login_subtitle: "Sign in to access course paths and learning progress",
         lbl_remember_me: "Remember Me",
@@ -1033,6 +1055,45 @@ function setupEventHandlers() {
         percentLabel.textContent = `${e.target.value}%`;
     });
 
+    // Smart progress status change listener (Auto sets start_date, completion_date, and progress_percent)
+    const progStatusSelect = document.getElementById("progStatus");
+    if (progStatusSelect) {
+        progStatusSelect.addEventListener("change", (e) => {
+            const statusVal = e.target.value;
+            const startDateInput = document.getElementById("progStartDate");
+            const compDateInput = document.getElementById("progCompDate");
+            const todayStr = new Date().toISOString().split("T")[0];
+
+            if (statusVal === "In Progress") {
+                if (startDateInput && !startDateInput.value) {
+                    startDateInput.value = todayStr;
+                }
+                if (progPercentInput && (parseInt(progPercentInput.value) === 0 || parseInt(progPercentInput.value) === 100)) {
+                    progPercentInput.value = 50;
+                    percentLabel.textContent = "50%";
+                }
+                if (compDateInput) compDateInput.value = "";
+            } else if (statusVal === "Completed") {
+                if (startDateInput && !startDateInput.value) {
+                    startDateInput.value = todayStr;
+                }
+                if (compDateInput && !compDateInput.value) {
+                    compDateInput.value = todayStr;
+                }
+                if (progPercentInput) {
+                    progPercentInput.value = 100;
+                    percentLabel.textContent = "100%";
+                }
+            } else if (statusVal === "Not Started") {
+                if (progPercentInput) {
+                    progPercentInput.value = 0;
+                    percentLabel.textContent = "0%";
+                }
+                if (compDateInput) compDateInput.value = "";
+            }
+        });
+    }
+
     // Form Submissions
     progressForm.addEventListener("submit", submitProgressForm);
     employeeForm.addEventListener("submit", submitEmployeeForm);
@@ -1354,6 +1415,7 @@ window.openProgressUpdateModal = function(courseName, path, moduleName, status, 
         document.getElementById("progPlannedDate").value = planned;
     }
     
+    updateLanguageUI();
     showModal(progressModal);
 };
 

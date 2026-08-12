@@ -381,7 +381,7 @@
     <div class="modal-backdrop" id="progressModal">
         <div class="modal-content glass">
             <div class="modal-header">
-                <h3>Cập nhật tiến độ học tập</h3>
+                <h3 data-i18n="modal_progress_title">Cập nhật tiến độ học tập</h3>
                 <span class="material-icons-round close-btn" id="closeProgressModal">close</span>
             </div>
             <div class="modal-body">
@@ -392,43 +392,43 @@
                     <input type="hidden" id="progModuleName">
                     
                     <div class="form-group-info">
-                        <p><strong>Khóa học:</strong> <span id="progInfoCourse">...</span></p>
-                        <p><strong>Học phần:</strong> <span id="progInfoModule">...</span></p>
+                        <p><strong data-i18n="lbl_course">Khóa học:</strong> <span id="progInfoCourse">...</span></p>
+                        <p><strong data-i18n="lbl_module">Học phần:</strong> <span id="progInfoModule">...</span></p>
                     </div>
                     
                     <div class="form-group">
-                        <label for="progStatus">Trạng thái học tập</label>
+                        <label for="progStatus" data-i18n="lbl_study_status">Trạng thái học tập</label>
                         <select id="progStatus" class="form-control" required>
-                            <option value="Not Started">Chưa bắt đầu (Not Started)</option>
-                            <option value="In Progress">Đang tiến hành (In Progress)</option>
-                            <option value="Completed">Đã hoàn thành (Completed)</option>
+                            <option value="Not Started" data-i18n="status_not_started">Chưa bắt đầu (Not Started)</option>
+                            <option value="In Progress" data-i18n="status_in_progress">Đang tiến hành (In Progress)</option>
+                            <option value="Completed" data-i18n="status_completed">Đã hoàn thành (Completed)</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="progPercent">Tiến trình (%) <span id="percentLabel">0%</span></label>
+                        <label for="progPercent"><span data-i18n="lbl_progress_percent">Tiến trình (%)</span> <span id="percentLabel">0%</span></label>
                         <input type="range" id="progPercent" class="form-range" min="0" max="100" value="0">
                     </div>
 
                     <div class="form-row">
                         <div class="form-group col-6">
-                            <label for="progStartDate">Ngày bắt đầu <span class="quick-date-btn" onclick="setToday('progStartDate')">Hôm nay</span></label>
+                            <label for="progStartDate"><span data-i18n="col_start_date">Ngày bắt đầu</span> <span class="quick-date-btn" onclick="setToday('progStartDate')" data-i18n="btn_today">Hôm nay</span></label>
                             <input type="date" id="progStartDate" class="form-control">
                         </div>
                         <div class="form-group col-6">
-                            <label for="progCompDate">Ngày hoàn thành <span class="quick-date-btn" onclick="setToday('progCompDate')">Hôm nay</span></label>
+                            <label for="progCompDate"><span data-i18n="lbl_comp_date">Ngày hoàn thành</span> <span class="quick-date-btn" onclick="setToday('progCompDate')" data-i18n="btn_today">Hôm nay</span></label>
                             <input type="date" id="progCompDate" class="form-control">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="progPlannedDate">Hạn hoàn thành <span class="quick-date-btn" onclick="setToday('progPlannedDate')">Hôm nay</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 7)">+7 ngày</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 14)">+14 ngày</span></label>
+                        <label for="progPlannedDate"><span data-i18n="lbl_target_date">Hạn hoàn thành</span> <span class="quick-date-btn" onclick="setToday('progPlannedDate')" data-i18n="btn_today">Hôm nay</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 7)">+7 ngày</span> <span class="quick-date-btn" onclick="setDateOffset('progPlannedDate', 14)">+14 ngày</span></label>
                         <input type="date" id="progPlannedDate" class="form-control" required>
                     </div>
                     
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" id="btnCancelProgressModal">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Lưu cập nhật</button>
+                        <button type="button" class="btn btn-secondary" id="btnCancelProgressModal" data-i18n="btn_cancel">Hủy</button>
+                        <button type="submit" class="btn btn-primary" data-i18n="btn_save_update">Lưu cập nhật</button>
                     </div>
                 </form>
             </div>
