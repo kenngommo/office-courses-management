@@ -1194,25 +1194,67 @@ function hideModal(modalEl) {
     modalEl.classList.remove("show");
 }
 
+// Helper: Get all courses matching user's enrollments or progress history
+function getUserEnrolledCourses(username) {
+    if (!username) return [];
+    
+    // Find all enrollment records for this username
+    const userEnrs = state.enrollments.filter(e => e.username === username);
+    
+    // Find all progress records for this username
+    const userProgress = state.progress.filter(p => p.username === username);
+    const userProgCourseKeys = new Set(userProgress.map(p => `${p.course_name}:::${p.path || ''}`));
+
+    // If user has direct enrollments or progress, filter matching courses
+    if (userEnrs.length > 0 || userProgress.length > 0) {
+        return state.courses.filter(c => {
+            // Match progress history
+            const cKey = `${c.course_name}:::${c.path || ''}`;
+            if (userProgCourseKeys.has(cKey)) return true;
+
+            // Match enrollments by plan or course_name
+            return userEnrs.some(e => {
+                const targetName = e.target_name || e.course_name || "";
+                if (e.target_type === "plan") {
+                    return targetName === c.plan || e.course_name === c.plan;
+                } else if (e.target_type === "course") {
+                    return targetName === c.course_name || e.course_name === c.course_name;
+                } else {
+                    return targetName === c.course_name || targetName === c.plan || e.course_name === c.course_name || e.course_name === c.plan;
+                }
+            });
+        });
+    }
+
+    // Fallback: If user has NO enrollments and NO progress, but is being viewed by Manager/Super User
+    const activeUser = state.loggedInUser || state.currentUser;
+    if (activeUser && (activeUser.role === "Manager" || activeUser.role === "Power User" || activeUser.role === "Super User")) {
+        return state.courses;
+    }
+
+    return [];
+}
+
 // Render Dashboard Data based on selected user
 function renderActiveDashboard() {
     if (!state.currentUser) return;
     const activeUser = state.loggedInUser || state.currentUser;
     
     // 1. Populate the Enrolled Course Filter select element on Personal tab
-    const myEnrs = state.enrollments.filter(e => e.username === state.currentUser.username);
+    const allUserCourses = getUserEnrolledCourses(state.currentUser.username);
+    const uniqueCourseNames = Array.from(new Set(allUserCourses.map(c => c.course_name)));
     const oldFilterVal = courseFilter.value;
     
     courseFilter.innerHTML = `<option value="ALL">${t("filter_all_courses")}</option>`;
-    myEnrs.forEach(e => {
+    uniqueCourseNames.forEach(cName => {
         const opt = document.createElement("option");
-        opt.value = e.course_name;
-        opt.textContent = e.course_name;
+        opt.value = cName;
+        opt.textContent = cName;
         courseFilter.appendChild(opt);
     });
     
     // Restore or reset filter value
-    if (oldFilterVal && (oldFilterVal === "ALL" || myEnrs.some(e => e.course_name === oldFilterVal))) {
+    if (oldFilterVal && (oldFilterVal === "ALL" || uniqueCourseNames.includes(oldFilterVal))) {
         courseFilter.value = oldFilterVal;
     } else {
         courseFilter.value = "ALL";
@@ -1233,12 +1275,7 @@ function renderActiveDashboard() {
 function renderPersonalTab() {
     const filter = courseFilter.value;
     
-    // Get enrollments for current user
-    const myEnrs = state.enrollments.filter(e => e.username === state.currentUser.username);
-    const enrolledCourseNames = myEnrs.map(e => e.course_name);
-    
-    // Filter courses based on user's enrollment and dropdown selection
-    let userEnrolledCourses = state.courses.filter(c => enrolledCourseNames.includes(c.course_name));
+    let userEnrolledCourses = getUserEnrolledCourses(state.currentUser.username);
     if (filter !== "ALL") {
         userEnrolledCourses = userEnrolledCourses.filter(c => c.course_name === filter);
     }
@@ -1247,9 +1284,6 @@ function renderPersonalTab() {
     let myProgress = state.progress.filter(p => p.username === state.currentUser.username);
     if (filter !== "ALL") {
         myProgress = myProgress.filter(p => p.course_name === filter);
-    } else {
-        // Only show progress for courses the user is currently enrolled in
-        myProgress = myProgress.filter(p => enrolledCourseNames.includes(p.course_name));
     }
     
     // 1. Compute KPIs
@@ -1354,7 +1388,7 @@ function renderPersonalTab() {
             <td>${getStatusBadge(currentStatus)}</td>
             <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate)}</td>
             <td class="actions-col">
-                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${courseModule.course_name}', '${courseModule.path || ""}', '${courseModule.module_name}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
+                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${safeStart}', '${safeComp}', '${plannedDate}')">
                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                 </button>
             </td>
@@ -1428,8 +1462,9 @@ function getSpeedBadge(speed, status, plannedDate) {
 }
 
 // Open Progress Modal
-window.openProgressUpdateModal = function(courseName, path, moduleName, status, progress, start, comp, planned) {
-    document.getElementById("progUsername").value = state.currentUser.username;
+window.openProgressUpdateModal = function(username, courseName, path, moduleName, status, progress, start, comp, planned) {
+    const targetUsername = username || (state.currentUser ? state.currentUser.username : "");
+    document.getElementById("progUsername").value = targetUsername;
     document.getElementById("progCourseName").value = courseName;
     document.getElementById("progPath").value = path || "";
     document.getElementById("progModuleName").value = moduleName;
@@ -1770,7 +1805,7 @@ function renderTeamProgressTable() {
                                             <td>${getStatusBadge(p.status)}</td>
                                             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
                                             <td class="actions-col">
-                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
+                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${userData.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
                                                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                                                 </button>
                                             </td>
