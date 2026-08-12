@@ -91,6 +91,11 @@ const campaignForm = document.getElementById("campaignForm");
 const editDurationModal = document.getElementById("editDurationModal");
 const editDurationForm = document.getElementById("editDurationForm");
 
+const moveModuleModal = document.getElementById("moveModuleModal");
+const moveModuleForm = document.getElementById("moveModuleForm");
+const addModuleToCourseModal = document.getElementById("addModuleToCourseModal");
+const addModuleToCourseForm = document.getElementById("addModuleToCourseForm");
+
 const userProfileBtn = document.getElementById("userProfileBtn");
 const userDropdownMenu = document.getElementById("userDropdownMenu");
 const btnOpenChangePassword = document.getElementById("btnOpenChangePassword");
@@ -611,6 +616,30 @@ function setupEventHandlers() {
     const edDurStringInput = document.getElementById("edDurString");
     if (edDurStringInput) {
         edDurStringInput.addEventListener("input", autoCalcEditDurationMinutes);
+    }
+
+    document.getElementById("closeMoveModuleModal").onclick = () => hideModal(moveModuleModal);
+    document.getElementById("btnCancelMoveModuleModal").onclick = () => hideModal(moveModuleModal);
+    if (moveModuleForm) moveModuleForm.addEventListener("submit", submitMoveModuleForm);
+
+    document.getElementById("closeAddModuleToCourseModal").onclick = () => hideModal(addModuleToCourseModal);
+    document.getElementById("btnCancelAddModuleToCourseModal").onclick = () => hideModal(addModuleToCourseModal);
+    if (addModuleToCourseForm) addModuleToCourseForm.addEventListener("submit", submitAddModuleToCourseForm);
+
+    const amDurationStringInput = document.getElementById("amDurationString");
+    if (amDurationStringInput) {
+        amDurationStringInput.addEventListener("input", () => {
+            const val = amDurationStringInput.value.trim();
+            const parts = val.split(":");
+            if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                const h = parseInt(parts[0]) || 0;
+                const m = parseInt(parts[1]) || 0;
+                const calculated = h * 60 + m;
+                if (calculated > 0) document.getElementById("amDurationMinutes").value = calculated;
+            } else if (!isNaN(val) && val) {
+                document.getElementById("amDurationMinutes").value = parseInt(val);
+            }
+        });
     }
 
     // Open Add Forms
@@ -1510,6 +1539,11 @@ function renderCourseMgmtTable() {
                             <span class="material-icons-round font-xs">${allCourseModulesActive ? 'check_circle' : 'do_not_disturb_on'}</span>
                             <span>${allCourseModulesActive ? 'Active' : 'Inactive'}</span>
                         </button>
+                        <button type="button" class="btn btn-secondary btn-sm" 
+                                onclick="event.stopPropagation(); openAddModuleToCourseModal('${safePlan}', '${safeCourseName}', '${safePath}')" 
+                                title="Thêm module mới vào khóa học này">
+                            <span class="material-icons-round font-xs">add</span> Thêm Module
+                        </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
                             <span>${modulesStatText}</span>
@@ -1545,7 +1579,7 @@ function renderCourseMgmtTable() {
                                 <th>Tên Module</th>
                                 <th>Thời lượng</th>
                                 <th>Số phút</th>
-                                <th>Trạng thái (Active / Tạm ẩn)</th>
+                                <th>Trạng thái & Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1578,12 +1612,24 @@ function renderCourseMgmtTable() {
                                         </td>
                                         <td class="font-mono">${m.duration_minutes} phút</td>
                                         <td>
-                                            <button type="button" class="toggle-switch-btn ${isActive ? 'is-active' : 'is-inactive'}" 
-                                                    onclick="event.stopPropagation(); toggleModuleActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}', ${!isActive})"
-                                                    title="Bấm để ${isActive ? 'chuyển sang Inactive (Tạm ẩn)' : 'chuyển sang Active (Kích hoạt)'} module này">
-                                                <span class="material-icons-round font-xs">${isActive ? 'check_circle' : 'do_not_disturb_on'}</span>
-                                                <span>${isActive ? 'Active' : 'Inactive'}</span>
-                                            </button>
+                                            <div class="flex-align-center gap-1">
+                                                <button type="button" class="toggle-switch-btn ${isActive ? 'is-active' : 'is-inactive'}" 
+                                                        onclick="event.stopPropagation(); toggleModuleActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}', ${!isActive})"
+                                                        title="Bấm để ${isActive ? 'chuyển sang Inactive (Tạm ẩn)' : 'chuyển sang Active (Kích hoạt)'} module này">
+                                                    <span class="material-icons-round font-xs">${isActive ? 'check_circle' : 'do_not_disturb_on'}</span>
+                                                    <span>${isActive ? 'Active' : 'Inactive'}</span>
+                                                </button>
+                                                <button type="button" class="btn btn-secondary btn-icon-only btn-sm" 
+                                                        onclick="event.stopPropagation(); openMoveModuleModal('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}')" 
+                                                        title="Chuyển module này sang khóa học khác">
+                                                    <span class="material-icons-round font-xs">swap_horiz</span>
+                                                </button>
+                                                <button type="button" class="btn btn-danger btn-icon-only btn-sm" 
+                                                        onclick="event.stopPropagation(); deleteModuleRecord('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}')" 
+                                                        title="Xóa module này khỏi khóa học">
+                                                    <span class="material-icons-round font-xs">delete</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `;
@@ -1733,6 +1779,143 @@ async function submitEditDurationForm(e) {
         alert("Lỗi kết nối tới máy chủ.");
     }
 }
+
+window.openMoveModuleModal = function(plan, courseName, path, moduleName) {
+    document.getElementById("mvSourcePlan").value = plan || "";
+    document.getElementById("mvSourceCourse").value = courseName;
+    document.getElementById("mvSourcePath").value = path || "";
+    document.getElementById("mvModuleName").value = moduleName;
+    document.getElementById("mvModuleDisplay").value = moduleName;
+
+    const select = document.getElementById("mvTargetCourseSelect");
+    select.innerHTML = "";
+    
+    const uniqueCourses = [];
+    state.courses.forEach(c => {
+        const key = `${c.plan}:::${c.course_name}`;
+        if (!uniqueCourses.find(u => u.key === key) && c.course_name !== courseName) {
+            uniqueCourses.push({
+                key: key,
+                plan: c.plan,
+                course_name: c.course_name,
+                path: c.path || ""
+            });
+        }
+    });
+
+    uniqueCourses.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = JSON.stringify({ plan: c.plan, course_name: c.course_name, path: c.path });
+        opt.textContent = `${c.course_name} (${c.plan})`;
+        select.appendChild(opt);
+    });
+
+    if (uniqueCourses.length === 0) {
+        alert("Hiện không có khóa học khác để chuyển module sang.");
+        return;
+    }
+
+    showModal(moveModuleModal);
+};
+
+async function submitMoveModuleForm(e) {
+    e.preventDefault();
+    const targetData = JSON.parse(document.getElementById("mvTargetCourseSelect").value);
+    const data = {
+        source_plan: document.getElementById("mvSourcePlan").value || null,
+        source_course: document.getElementById("mvSourceCourse").value,
+        source_path: document.getElementById("mvSourcePath").value || null,
+        module_name: document.getElementById("mvModuleName").value,
+        target_plan: targetData.plan,
+        target_course: targetData.course_name,
+        target_path: targetData.path || null
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/move-module`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const resData = await response.json();
+        if (response.ok) {
+            alert(resData.message || "Chuyển module thành công!");
+            hideModal(moveModuleModal);
+            await refreshData();
+        } else {
+            alert(`Lỗi: ${resData.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
+    }
+}
+
+window.openAddModuleToCourseModal = function(plan, courseName, path) {
+    document.getElementById("amPlan").value = plan;
+    document.getElementById("amCourseName").value = courseName;
+    document.getElementById("amPath").value = path || "";
+    document.getElementById("amCourseDisplay").value = `${courseName} (${plan})`;
+    document.getElementById("amModuleName").value = "";
+    document.getElementById("amDurationString").value = "01:30:00";
+    document.getElementById("amDurationMinutes").value = 90;
+
+    showModal(addModuleToCourseModal);
+};
+
+async function submitAddModuleToCourseForm(e) {
+    e.preventDefault();
+    const data = {
+        plan: document.getElementById("amPlan").value,
+        course_name: document.getElementById("amCourseName").value,
+        path: document.getElementById("amPath").value || null,
+        module_name: document.getElementById("amModuleName").value.trim(),
+        duration: document.getElementById("amDurationString").value.trim(),
+        duration_minutes: parseInt(document.getElementById("amDurationMinutes").value) || 0
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/add-module`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const resData = await response.json();
+        if (response.ok) {
+            alert(resData.message || "Thêm module mới thành công!");
+            hideModal(addModuleToCourseModal);
+            await refreshData();
+        } else {
+            alert(`Lỗi: ${resData.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
+    }
+}
+
+window.deleteModuleRecord = async function(plan, courseName, path, moduleName) {
+    if (!confirm(`Bạn có chắc muốn xóa module '${moduleName}' khỏi khóa học '${courseName}'?`)) return;
+
+    let url = `${API_BASE}/api/courses/module?course_name=${encodeURIComponent(courseName)}&module_name=${encodeURIComponent(moduleName)}`;
+    if (plan) url += `&plan=${encodeURIComponent(plan)}`;
+    if (path) url += `&path=${encodeURIComponent(path)}`;
+
+    try {
+        const response = await fetch(url, { method: "DELETE" });
+        const resData = await response.json();
+        if (response.ok) {
+            await refreshData();
+        } else {
+            alert(`Lỗi: ${resData.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
+    }
+};
 
 // Course design row templates
 function addModuleInputRow() {

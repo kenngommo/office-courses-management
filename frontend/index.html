@@ -727,6 +727,87 @@
         </div>
     </div>
 
+    <!-- MODAL: MOVE MODULE TO ANOTHER COURSE -->
+    <div class="modal-backdrop" id="moveModuleModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Chuyển Module sang Khóa học khác</h3>
+                <span class="material-icons-round close-btn" id="closeMoveModuleModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="moveModuleForm">
+                    <input type="hidden" id="mvSourcePlan">
+                    <input type="hidden" id="mvSourceCourse">
+                    <input type="hidden" id="mvSourcePath">
+                    <input type="hidden" id="mvModuleName">
+                    
+                    <div class="form-group mb-3">
+                        <label for="mvModuleDisplay">Module cần di chuyển</label>
+                        <input type="text" id="mvModuleDisplay" class="form-control" readonly disabled>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="mvTargetCourseSelect">Chọn Khóa học đích (Target Course)</label>
+                        <select id="mvTargetCourseSelect" class="form-control" required>
+                            <!-- Populated dynamically via JS -->
+                        </select>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelMoveModuleModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round font-sm">swap_horiz</span> Xác nhận Chuyển
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD MODULE TO EXISTING COURSE -->
+    <div class="modal-backdrop" id="addModuleToCourseModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Thêm Module mới vào Khóa học</h3>
+                <span class="material-icons-round close-btn" id="closeAddModuleToCourseModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="addModuleToCourseForm">
+                    <input type="hidden" id="amPlan">
+                    <input type="hidden" id="amCourseName">
+                    <input type="hidden" id="amPath">
+                    
+                    <div class="form-group mb-3">
+                        <label for="amCourseDisplay">Khóa học tiếp nhận</label>
+                        <input type="text" id="amCourseDisplay" class="form-control" readonly disabled>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="amModuleName">Tên Module mới</label>
+                        <input type="text" id="amModuleName" class="form-control" required placeholder="Ví dụ: Module 05: Advanced Configuration & Rules">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="amDurationString">Thời lượng (Chuỗi hiển thị)</label>
+                        <input type="text" id="amDurationString" class="form-control" required placeholder="Ví dụ: 02:30:00 hoặc 150 phút">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="amDurationMinutes">Quy đổi ra Số phút (Minutes)</label>
+                        <input type="number" id="amDurationMinutes" class="form-control" min="1" required placeholder="Ví dụ: 150">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelAddModuleToCourseModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round font-sm">add</span> Thêm Module
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- LOGIN SHIELD OVERLAY (BLOCKS CONTENT UNTIL LOGGED IN) -->
     <div class="login-overlay-backdrop active" id="loginOverlay">
         <div class="login-modal-box glass">

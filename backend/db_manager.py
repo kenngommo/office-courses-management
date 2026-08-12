@@ -245,6 +245,69 @@ def update_module_duration(plan: Optional[str], course_name: str, module_name: s
     wb.close()
     return updated
 
+def move_module_to_course(source_plan: Optional[str], source_course: str, module_name: str, target_plan: str, target_course: str, target_path: Optional[str] = None, source_path: Optional[str] = None):
+    """Move a module from source course to target course in sheet.xlsx."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách khóa học EPM V5"]
+    
+    moved = False
+    for r in range(2, ws.max_row + 1):
+        p_val = ws.cell(row=r, column=1).value
+        c_val = ws.cell(row=r, column=2).value
+        path_val = ws.cell(row=r, column=3).value
+        m_val = ws.cell(row=r, column=4).value
+        
+        match_plan = (p_val == source_plan) if source_plan else True
+        match_course = (c_val == source_course)
+        match_path = (path_val == source_path) if source_path is not None else True
+        match_module = (m_val == module_name)
+        
+        if match_plan and match_course and match_path and match_module:
+            ws.cell(row=r, column=1).value = target_plan
+            ws.cell(row=r, column=2).value = target_course
+            ws.cell(row=r, column=3).value = target_path if target_path is not None else path_val
+            moved = True
+            break
+            
+    if moved:
+        recalculate_formulas(ws)
+        wb.save(EXCEL_FILE)
+    wb.close()
+    return moved
+
+def delete_single_module(plan: Optional[str], course_name: str, module_name: str, path: Optional[str] = None):
+    """Delete a single module row from sheet.xlsx."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách khóa học EPM V5"]
+    
+    target_row = None
+    for r in range(2, ws.max_row + 1):
+        p_val = ws.cell(row=r, column=1).value
+        c_val = ws.cell(row=r, column=2).value
+        path_val = ws.cell(row=r, column=3).value
+        m_val = ws.cell(row=r, column=4).value
+        
+        match_plan = (p_val == plan) if plan else True
+        match_course = (c_val == course_name)
+        match_path = (path_val == path) if path is not None else True
+        match_module = (m_val == module_name)
+        
+        if match_plan and match_course and match_path and match_module:
+            target_row = r
+            break
+            
+    if target_row:
+        ws.delete_rows(target_row)
+        recalculate_formulas(ws)
+        wb.save(EXCEL_FILE)
+        wb.close()
+        return True
+        
+    wb.close()
+    return False
+
 def clone_course_campaign(source_course_name: str, new_course_name: str, new_plan: Optional[str] = None, new_path: Optional[str] = None, source_path: Optional[str] = None):
     """Clone active modules of a course into a new independent course template / campaign."""
     init_db()

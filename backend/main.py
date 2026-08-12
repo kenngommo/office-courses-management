@@ -27,7 +27,9 @@ from backend.db_manager import (
     clone_course_campaign,
     clone_plan_campaign,
     reorder_courses_in_plan,
-    update_module_duration
+    update_module_duration,
+    move_module_to_course,
+    delete_single_module
 )
 
 # Initialize sheet schema if not already present
@@ -390,6 +392,79 @@ def api_update_module_duration(req: UpdateModuleDurationRequest):
         if not success:
             raise HTTPException(status_code=404, detail="Không tìm thấy module để cập nhật thời lượng.")
         return {"status": "success", "message": "Cập nhật thời lượng module thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class MoveModuleRequest(BaseModel):
+    source_plan: Optional[str] = None
+    source_course: str
+    module_name: str
+    source_path: Optional[str] = None
+    target_plan: str
+    target_course: str
+    target_path: Optional[str] = None
+
+@app.post("/api/courses/move-module")
+def api_move_module(req: MoveModuleRequest):
+    try:
+        success = move_module_to_course(
+            source_plan=req.source_plan,
+            source_course=req.source_course,
+            module_name=req.module_name,
+            target_plan=req.target_plan,
+            target_course=req.target_course,
+            target_path=req.target_path,
+            source_path=req.source_path
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Không tìm thấy module để di chuyển.")
+        return {"status": "success", "message": f"Chuyển module '{req.module_name}' sang khóa '{req.target_course}' thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AddModuleToCourseRequest(BaseModel):
+    plan: str
+    course_name: str
+    path: Optional[str] = None
+    module_name: str
+    duration: str
+    duration_minutes: int
+
+@app.post("/api/courses/add-module")
+def api_add_module_to_course(req: AddModuleToCourseRequest):
+    try:
+        add_course_modules(
+            plan=req.plan,
+            course_name=req.course_name,
+            path=req.path or "",
+            modules=[{
+                "module_name": req.module_name,
+                "duration": req.duration,
+                "duration_minutes": req.duration_minutes,
+                "queue": True
+            }]
+        )
+        return {"status": "success", "message": f"Thêm module '{req.module_name}' vào khóa '{req.course_name}' thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/courses/module")
+def api_delete_single_module(
+    plan: Optional[str] = Query(None),
+    course_name: str = Query(...),
+    module_name: str = Query(...),
+    path: Optional[str] = Query(None)
+):
+    try:
+        success = delete_single_module(
+            plan=plan,
+            course_name=course_name,
+            module_name=module_name,
+            path=path
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Không tìm thấy module để xóa.")
+        return {"status": "success", "message": f"Xóa module '{module_name}' thành công!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
