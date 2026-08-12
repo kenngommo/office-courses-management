@@ -167,11 +167,21 @@ function setupEventHandlers() {
         };
     }
     
-    document.addEventListener("click", (e) => {
-        if (userDropdownMenu && !userDropdownMenu.contains(e.target) && !userProfileBtn.contains(e.target)) {
-            userDropdownMenu.classList.remove("show");
-        }
-    });
+    // Password Visibility Toggle Button
+    const toggleLoginPassword = document.getElementById("toggleLoginPassword");
+    if (toggleLoginPassword) {
+        toggleLoginPassword.onclick = () => {
+            const pwdInput = document.getElementById("loginPassword");
+            const icon = toggleLoginPassword.querySelector("span");
+            if (pwdInput.type === "password") {
+                pwdInput.type = "text";
+                icon.textContent = "visibility_off";
+            } else {
+                pwdInput.type = "password";
+                icon.textContent = "visibility";
+            }
+        };
+    }
 
     // Login Form Submit
     if (loginForm) {

@@ -1512,6 +1512,30 @@ body {
     padding-left: 2.5rem;
 }
 
+.input-with-icon.has-toggle .form-control {
+    padding-right: 2.5rem;
+}
+
+.input-with-icon .toggle-password-btn {
+    position: absolute;
+    right: 0.75rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+    z-index: 5;
+}
+
+.input-with-icon .toggle-password-btn:hover {
+    color: var(--text-primary);
+}
+
 .btn-login {
     width: 100%;
     padding: 0.75rem;

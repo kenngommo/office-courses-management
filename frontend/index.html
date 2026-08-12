@@ -656,9 +656,12 @@
 
                 <div class="form-group">
                     <label for="loginPassword">Mật khẩu</label>
-                    <div class="input-with-icon">
+                    <div class="input-with-icon has-toggle">
                         <span class="material-icons-round font-sm input-icon">lock</span>
                         <input type="password" id="loginPassword" class="form-control" required placeholder="Nhập mật khẩu của bạn">
+                        <button type="button" class="toggle-password-btn" id="toggleLoginPassword" title="Hiển thị/Ẩn mật khẩu">
+                            <span class="material-icons-round font-sm">visibility</span>
+                        </button>
                     </div>
                 </div>
 
@@ -669,10 +672,6 @@
                     <button type="submit" class="btn btn-primary btn-login">
                         <span class="material-icons-round font-sm">login</span> Đăng nhập
                     </button>
-                </div>
-
-                <div class="login-footer-hint text-muted font-xs mt-3 text-center">
-                    <span class="material-icons-round font-xs" style="vertical-align: middle;">info</span> Mật khẩu ban đầu mặc định do Admin cấp: <code>EPM@2026</code>
                 </div>
             </form>
         </div>
