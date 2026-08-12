@@ -188,6 +188,34 @@ def delete_course(course_name):
     wb.save(EXCEL_FILE)
     wb.close()
 
+def toggle_module_status(plan: Optional[str] = None, course_name: Optional[str] = None, module_name: Optional[str] = None, path: Optional[str] = None, queue: bool = True):
+    """Toggle Queue (active/inactive) status for a specific module, path, or all modules in a course."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách khóa học EPM V5"]
+    
+    updated = False
+    for r in range(2, ws.max_row + 1):
+        p_val = ws.cell(row=r, column=1).value
+        c_val = ws.cell(row=r, column=2).value
+        path_val = ws.cell(row=r, column=3).value
+        m_val = ws.cell(row=r, column=4).value
+        
+        match_plan = (p_val == plan) if plan else True
+        match_course = (c_val == course_name) if course_name else True
+        match_path = (path_val == path) if path is not None else True
+        match_module = (m_val == module_name) if module_name else True
+        
+        if match_plan and match_course and match_path and match_module:
+            ws.cell(row=r, column=7).value = queue
+            updated = True
+            
+    if updated:
+        recalculate_formulas(ws)
+        wb.save(EXCEL_FILE)
+    wb.close()
+    return updated
+
 import hashlib
 import hmac
 
@@ -750,9 +778,9 @@ def save_enrollment(username, target_type, target_name, start_date, end_date, wo
     # 2. Schedule module deadlines
     all_courses = get_courses()
     if target_type.lower() == "plan":
-        target_modules = [m for m in all_courses if m["plan"] == target_name]
+        target_modules = [m for m in all_courses if m["plan"] == target_name and m.get("queue", True)]
     else:
-        target_modules = [m for m in all_courses if m["course_name"] == target_name]
+        target_modules = [m for m in all_courses if m["course_name"] == target_name and m.get("queue", True)]
         
     if not target_modules:
         return

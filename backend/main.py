@@ -22,7 +22,8 @@ from backend.db_manager import (
     authenticate_user,
     change_user_password,
     reset_user_password,
-    update_user_avatar
+    update_user_avatar,
+    toggle_module_status
 )
 
 # Initialize sheet schema if not already present
@@ -282,6 +283,29 @@ async def api_update_avatar(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi cập nhật ảnh đại diện: {str(e)}")
+
+class ToggleModuleRequest(BaseModel):
+    plan: Optional[str] = None
+    course_name: Optional[str] = None
+    path: Optional[str] = None
+    module_name: Optional[str] = None
+    queue: bool = True
+
+@app.post("/api/courses/toggle-active")
+def api_toggle_course_module(req: ToggleModuleRequest):
+    try:
+        success = toggle_module_status(
+            plan=req.plan,
+            course_name=req.course_name,
+            module_name=req.module_name,
+            path=req.path,
+            queue=req.queue
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Không tìm thấy module/khóa học phù hợp.")
+        return {"status": "success", "message": "Cập nhật trạng thái Active/Unactive thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 from fastapi.responses import Response
 

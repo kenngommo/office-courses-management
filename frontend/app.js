@@ -1239,6 +1239,53 @@ window.toggleLevel2Modules = function(courseCardId, event) {
     }
 };
 
+window.toggleModuleActiveStatus = async function(plan, courseName, path, moduleName, newStatus) {
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/toggle-active`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                plan: plan,
+                course_name: courseName,
+                path: path || null,
+                module_name: moduleName,
+                queue: newStatus
+            })
+        });
+        if (response.ok) {
+            await refreshData();
+        } else {
+            const err = await response.json();
+            alert(`Lỗi: ${err.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+window.toggleCourseActiveStatus = async function(plan, courseName, path, newStatus) {
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/toggle-active`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                plan: plan,
+                course_name: courseName,
+                path: path || null,
+                queue: newStatus
+            })
+        });
+        if (response.ok) {
+            await refreshData();
+        } else {
+            const err = await response.json();
+            alert(`Lỗi: ${err.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+
 // COURSE CATALOG HIERARCHICAL VIEW (LEVEL 1: PLANS, LEVEL 2: COURSES & MODULES)
 function renderCourseMgmtTable() {
     if (!courseHierarchyContainer) return;
@@ -1263,7 +1310,9 @@ function renderCourseMgmtTable() {
                 planName: planName,
                 courses: {},
                 totalMinutes: 0,
-                totalModules: 0
+                activeMinutes: 0,
+                totalModules: 0,
+                activeModules: 0
             };
         }
         
@@ -1274,7 +1323,9 @@ function renderCourseMgmtTable() {
                 course_name: c.course_name,
                 path: c.path || "",
                 modules: [],
-                totalMinutes: 0
+                totalMinutes: 0,
+                activeMinutes: 0,
+                activeModules: 0
             };
         }
         
@@ -1282,6 +1333,13 @@ function renderCourseMgmtTable() {
         planMap[planName].courses[courseKey].totalMinutes += (c.duration_minutes || 0);
         planMap[planName].totalMinutes += (c.duration_minutes || 0);
         planMap[planName].totalModules += 1;
+
+        if (c.queue !== false) {
+            planMap[planName].courses[courseKey].activeMinutes += (c.duration_minutes || 0);
+            planMap[planName].courses[courseKey].activeModules += 1;
+            planMap[planName].activeMinutes += (c.duration_minutes || 0);
+            planMap[planName].activeModules += 1;
+        }
     });
 
     let planIdx = 0;
@@ -1289,7 +1347,7 @@ function renderCourseMgmtTable() {
         planIdx++;
         const courseKeys = Object.keys(plan.courses);
         const courseCount = courseKeys.length;
-        const planDurationFormatted = formatHoursMinutes(plan.totalMinutes);
+        const planDurationFormatted = formatHoursMinutes(plan.activeMinutes);
         const planCardId = `plan-card-${planIdx}`;
         
         const planCard = document.createElement("div");
@@ -1304,7 +1362,7 @@ function renderCourseMgmtTable() {
                     <span class="material-icons-round level1-icon">school</span>
                     <div class="level1-title-text">
                         <h3 class="plan-name">${plan.planName}</h3>
-                        <span class="level1-subtitle">Level 1: Phân loại khoá học (Plan)</span>
+                        <span class="level1-subtitle">Level 1: Phân loại khoá học (Plan) • <strong class="text-success">${plan.activeModules}/${plan.totalModules} modules active</strong></span>
                     </div>
                 </div>
                 <div class="level1-stats">
@@ -1312,7 +1370,7 @@ function renderCourseMgmtTable() {
                         <span class="material-icons-round font-sm">menu_book</span> ${courseCount} khóa học
                     </span>
                     <span class="stat-badge time-badge">
-                        <span class="material-icons-round font-sm">schedule</span> Tổng thời lượng: ${planDurationFormatted}
+                        <span class="material-icons-round font-sm">schedule</span> ${planDurationFormatted} (Active)
                     </span>
                 </div>
             </div>
@@ -1327,20 +1385,24 @@ function renderCourseMgmtTable() {
         courseKeys.forEach(cKey => {
             courseIdx++;
             const courseObj = plan.courses[cKey];
-            const courseDurationFormatted = formatHoursMinutes(courseObj.totalMinutes, "short");
+            const courseDurationFormatted = formatHoursMinutes(courseObj.activeMinutes, "short");
             const courseCardId = `course-card-${planIdx}-${courseIdx}`;
             
             const courseCard = document.createElement("div");
             courseCard.className = "level2-card";
             courseCard.id = courseCardId;
             
+            const safePlan = plan.planName.replace(/'/g, "\\'");
             const safeCourseName = courseObj.course_name.replace(/'/g, "\\'");
+            const safePath = courseObj.path.replace(/'/g, "\\'");
             
+            const allCourseModulesActive = courseObj.activeModules === courseObj.modules.length;
+
             const examCount = courseObj.modules.filter(m => /1z0-|exam|certification|professional/i.test(m.module_name)).length;
             const regCount = courseObj.modules.length - examCount;
-            let modulesStatText = `<strong>${courseObj.modules.length}</strong> modules`;
+            let modulesStatText = `<strong>${courseObj.activeModules}/${courseObj.modules.length}</strong> modules active`;
             if (examCount > 0) {
-                modulesStatText = `<strong>${regCount}</strong> modules, <strong>${examCount}</strong> exams`;
+                modulesStatText = `<strong>${courseObj.activeModules}/${courseObj.modules.length}</strong> modules (${examCount} exams)`;
             }
             
             // Level 2 Course HTML with ">" module toggle button
@@ -1355,14 +1417,20 @@ function renderCourseMgmtTable() {
                             ${courseObj.path ? `<span class="path-pill"><span class="material-icons-round font-xs">alt_route</span> Lộ trình: ${courseObj.path}</span>` : ''}
                         </div>
                     </div>
-                    <div class="level2-right">
+                    <div class="level2-right flex-align-center gap-2">
+                        <button type="button" class="toggle-switch-btn ${allCourseModulesActive ? 'is-active' : 'is-inactive'}" 
+                                onclick="event.stopPropagation(); toggleCourseActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', ${!allCourseModulesActive})"
+                                title="Bấm để ${allCourseModulesActive ? 'Tạm ẩn tất cả modules của khóa này' : 'Kích hoạt tất cả modules của khóa này'}">
+                            <span class="material-icons-round font-xs">${allCourseModulesActive ? 'check_circle' : 'do_not_disturb_on'}</span>
+                            <span>${allCourseModulesActive ? 'Tất cả Active' : 'Bật/Tắt Khóa'}</span>
+                        </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
                             <span>${modulesStatText}</span>
                         </div>
                         <div class="course-stat-item">
                             <span class="material-icons-round">schedule</span>
-                            <span class="font-mono font-weight-bold">${courseDurationFormatted}</span>
+                            <span class="font-mono font-weight-bold text-success">${courseDurationFormatted}</span>
                         </div>
                         <button class="btn btn-danger btn-icon-only btn-sm" onclick="event.stopPropagation(); deleteCourseRecord('${safeCourseName}')" title="Xóa khóa học">
                             <span class="material-icons-round">delete</span>
@@ -1377,7 +1445,7 @@ function renderCourseMgmtTable() {
                                 <th>Tên Module</th>
                                 <th>Thời lượng</th>
                                 <th>Số phút</th>
-                                <th>Hàng đợi (Queue)</th>
+                                <th>Trạng thái (Active / Tạm ẩn)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1387,20 +1455,26 @@ function renderCourseMgmtTable() {
                                 const badgeHtml = isExam 
                                     ? `<span class="badge-type-exam"><span class="material-icons-round font-xs">verified</span> Exam</span>`
                                     : `<span class="badge-type-course"><span class="material-icons-round font-xs">play_circle</span> Course</span>`;
+                                const isActive = m.queue !== false;
+                                const safeModName = m.module_name.replace(/'/g, "\\'");
+
                                 return `
-                                    <tr>
+                                    <tr class="${isActive ? '' : 'module-inactive-row'}">
                                         <td class="font-mono text-muted">${mIdx + 1}</td>
                                         <td class="mod-name-cell">
                                             <span class="material-icons-round mod-type-icon ${isExam ? 'exam-icon' : 'course-icon'}" title="${isExam ? 'Bài thi chứng chỉ (Fixed ratio 1.0x)' : 'Bài học (Nhân hệ số ratio)'}">${iconName}</span>
-                                            <strong>${m.module_name}</strong>
+                                            <strong class="module-name-text">${m.module_name}</strong>
                                             <span class="ml-2">${badgeHtml}</span>
                                         </td>
                                         <td><span class="badge-dur">${m.duration || '-'}</span></td>
                                         <td class="font-mono">${m.duration_minutes} phút</td>
                                         <td>
-                                            <span class="${m.queue ? 'badge-queue-active' : 'badge-queue-disabled'}">
-                                                ${m.queue ? 'Trong hàng đợi' : 'Tạm hoãn'}
-                                            </span>
+                                            <button type="button" class="toggle-switch-btn ${isActive ? 'is-active' : 'is-inactive'}" 
+                                                    onclick="event.stopPropagation(); toggleModuleActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}', ${!isActive})"
+                                                    title="Bấm để ${isActive ? 'Tạm ẩn (Unactive) module này khỏi lộ trình' : 'Kích hoạt (Active) module này'}">
+                                                <span class="material-icons-round font-xs">${isActive ? 'check_circle' : 'do_not_disturb_on'}</span>
+                                                <span>${isActive ? 'Active' : 'Tạm ẩn'}</span>
+                                            </button>
                                         </td>
                                     </tr>
                                 `;
@@ -1532,9 +1606,9 @@ function getTargetVideoMinutes(targetType, targetName) {
     let matching = [];
     
     if (targetType === "plan") {
-        matching = state.courses.filter(c => c.plan === targetName);
+        matching = state.courses.filter(c => c.plan === targetName && c.queue !== false);
     } else {
-        matching = state.courses.filter(c => c.course_name === targetName);
+        matching = state.courses.filter(c => c.course_name === targetName && c.queue !== false);
     }
     
     moduleCount = matching.length;

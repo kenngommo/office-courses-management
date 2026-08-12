@@ -1713,6 +1713,70 @@ body {
     cursor: pointer;
 }
 
+/* ACTIVE / UNACTIVE MODULE TOGGLE STYLING */
+.module-inactive-row {
+    opacity: 0.55;
+    background: rgba(0, 0, 0, 0.15) !important;
+}
+
+.module-inactive-row .module-name-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.badge-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-ontrack, #10b981);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-inactive {
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-muted);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.toggle-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.toggle-switch-btn.is-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.toggle-switch-btn.is-active:hover {
+    background: rgba(16, 185, 129, 0.25);
+}
+
+.toggle-switch-btn.is-inactive {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.toggle-switch-btn.is-inactive:hover {
+    background: rgba(148, 163, 184, 0.25);
+}
+
 
 
 
