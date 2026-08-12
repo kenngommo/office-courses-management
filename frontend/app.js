@@ -3,7 +3,8 @@ const API_BASE = ""; // Since frontend is served from FastAPI root, requests are
 // Application State
 let state = {
     users: [],
-    currentUser: null,
+    loggedInUser: null, // Logged in user session (e.g. Manager)
+    currentUser: null,  // Target user being viewed in personal progress dashboard
     courses: [],
     progress: [],
     enrollments: []
@@ -94,19 +95,32 @@ window.addEventListener("DOMContentLoaded", async () => {
     setupEventHandlers();
     await refreshData();
     
-    // Check saved session in localStorage
+    // Check saved remember credentials
+    const savedRememberJson = localStorage.getItem("epm_remember");
+    if (savedRememberJson) {
+        try {
+            const rem = JSON.parse(savedRememberJson);
+            if (rem.user_or_email) document.getElementById("loginUserOrEmail").value = rem.user_or_email;
+            if (rem.password) document.getElementById("loginPassword").value = rem.password;
+            document.getElementById("rememberMeCheck").checked = true;
+        } catch(e) {}
+    }
+    
+    // Check active session in localStorage
     const savedUserJson = localStorage.getItem("epm_user");
     if (savedUserJson) {
         try {
             const savedUser = JSON.parse(savedUserJson);
             const verifiedUser = state.users.find(u => u.username === savedUser.username);
             if (verifiedUser) {
+                state.loggedInUser = verifiedUser;
                 state.currentUser = verifiedUser;
+                renderSelectors();
                 userSelector.value = state.currentUser.username;
                 loginOverlay.classList.remove("active");
                 onUserChanged();
                 
-                if (state.currentUser.must_change_password) {
+                if (state.loggedInUser.must_change_password) {
                     setTimeout(() => {
                         alert("Tài khoản của bạn cần đổi mật khẩu mới để đảm bảo an toàn.");
                         showModal(changePasswordModal);
@@ -138,6 +152,15 @@ async function refreshData() {
         state.progress = progressRes;
         state.enrollments = enrollmentsRes;
         
+        if (state.loggedInUser) {
+            const freshLoggedIn = state.users.find(u => u.username === state.loggedInUser.username);
+            if (freshLoggedIn) state.loggedInUser = freshLoggedIn;
+        }
+        if (state.currentUser) {
+            const freshCurrent = state.users.find(u => u.username === state.currentUser.username);
+            if (freshCurrent) state.currentUser = freshCurrent;
+        }
+        
         renderSelectors();
         renderActiveDashboard();
     } catch (err) {
@@ -150,15 +173,32 @@ function renderSelectors() {
     const previousVal = userSelector.value;
     userSelector.innerHTML = "";
     
-    state.users.forEach(u => {
-        const opt = document.createElement("option");
-        opt.value = u.username;
-        const nameDisplay = u.english_name ? `${u.fullname} (${u.english_name})` : u.fullname;
-        opt.textContent = `${nameDisplay} (${u.role})`;
-        userSelector.appendChild(opt);
-    });
+    if (state.loggedInUser) {
+        const myOpt = document.createElement("option");
+        myOpt.value = state.loggedInUser.username;
+        myOpt.textContent = `⭐ Tài khoản của tôi (${state.loggedInUser.fullname})`;
+        userSelector.appendChild(myOpt);
+        
+        state.users.filter(u => u.username !== state.loggedInUser.username).forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u.username;
+            const nameDisplay = u.english_name ? `${u.fullname} (${u.english_name})` : u.fullname;
+            opt.textContent = `${nameDisplay} (${u.role})`;
+            userSelector.appendChild(opt);
+        });
+    } else {
+        state.users.forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u.username;
+            const nameDisplay = u.english_name ? `${u.fullname} (${u.english_name})` : u.fullname;
+            opt.textContent = `${nameDisplay} (${u.role})`;
+            userSelector.appendChild(opt);
+        });
+    }
     
-    if (previousVal && state.users.find(u => u.username === previousVal)) {
+    if (state.currentUser) {
+        userSelector.value = state.currentUser.username;
+    } else if (previousVal && state.users.find(u => u.username === previousVal)) {
         userSelector.value = previousVal;
     }
 }
@@ -200,6 +240,7 @@ function setupEventHandlers() {
 
             const userOrEmail = document.getElementById("loginUserOrEmail").value.trim();
             const password = document.getElementById("loginPassword").value;
+            const rememberMeCheck = document.getElementById("rememberMeCheck");
 
             try {
                 const response = await fetch(`${API_BASE}/api/auth/login`, {
@@ -210,11 +251,18 @@ function setupEventHandlers() {
 
                 const data = await response.json();
                 if (response.ok && data.user) {
+                    state.loggedInUser = data.user;
                     state.currentUser = data.user;
                     localStorage.setItem("epm_user", JSON.stringify(data.user));
+                    
+                    if (rememberMeCheck && rememberMeCheck.checked) {
+                        localStorage.setItem("epm_remember", JSON.stringify({ user_or_email: userOrEmail, password: password }));
+                    } else {
+                        localStorage.removeItem("epm_remember");
+                    }
+
+                    renderSelectors();
                     loginOverlay.classList.remove("active");
-                    loginForm.reset();
-                    userSelector.value = state.currentUser.username;
                     onUserChanged();
 
                     if (data.user.must_change_password) {
@@ -436,19 +484,32 @@ function setupEventHandlers() {
         btnLogout.onclick = () => {
             userDropdownMenu.classList.remove("show");
             localStorage.removeItem("epm_user");
+            state.loggedInUser = null;
             state.currentUser = null;
             loginOverlay.classList.add("active");
         };
     }
 
-    // User Switcher (for Manager role testing)
+    // Switch Back To Self Button in Manager View-As Banner
+    const btnSwitchBackToSelf = document.getElementById("btnSwitchBackToSelf");
+    if (btnSwitchBackToSelf) {
+        btnSwitchBackToSelf.onclick = () => {
+            if (state.loggedInUser) {
+                state.currentUser = state.loggedInUser;
+                userSelector.value = state.loggedInUser.username;
+                onUserChanged();
+            }
+        };
+    }
+
+    // User Switcher (for Manager role progress viewing)
     userSelector.addEventListener("change", (e) => {
         const username = e.target.value;
-        state.currentUser = state.users.find(u => u.username === username);
-        if (state.currentUser) {
-            localStorage.setItem("epm_user", JSON.stringify(state.currentUser));
+        const targetUser = state.users.find(u => u.username === username);
+        if (targetUser) {
+            state.currentUser = targetUser;
+            onUserChanged();
         }
-        onUserChanged();
     });
 
     // Theme Toggle
@@ -633,12 +694,13 @@ function setupEventHandlers() {
 // User Switching Callback
 function onUserChanged() {
     if (!state.currentUser) return;
+    const activeUser = state.loggedInUser || state.currentUser;
     
     const nameDisplay = state.currentUser.english_name ? `${state.currentUser.fullname} (${state.currentUser.english_name})` : state.currentUser.fullname;
     currentUserNameLabel.textContent = nameDisplay;
     currentUserRoleLabel.textContent = state.currentUser.role;
     
-    // Top Nav Header Profile Elements
+    // Top Nav Header Profile Elements ALWAYS reflect state.loggedInUser (the authenticated Manager session)
     const topUserName = document.getElementById("topUserName");
     const topUserRole = document.getElementById("topUserRole");
     const dropdownFullName = document.getElementById("dropdownFullName");
@@ -646,19 +708,20 @@ function onUserChanged() {
     const managerUserSwitcherItem = document.getElementById("managerUserSwitcherItem");
     const managerUserSwitcherDivider = document.getElementById("managerUserSwitcherDivider");
 
-    if (topUserName) topUserName.textContent = nameDisplay;
-    if (topUserRole) topUserRole.textContent = state.currentUser.role;
-    if (dropdownFullName) dropdownFullName.textContent = state.currentUser.fullname;
-    if (dropdownEmail) dropdownEmail.textContent = state.currentUser.email || "No email registered";
+    const loggedInNameDisplay = activeUser.english_name ? `${activeUser.fullname} (${activeUser.english_name})` : activeUser.fullname;
+    if (topUserName) topUserName.textContent = loggedInNameDisplay;
+    if (topUserRole) topUserRole.textContent = activeUser.role;
+    if (dropdownFullName) dropdownFullName.textContent = activeUser.fullname;
+    if (dropdownEmail) dropdownEmail.textContent = activeUser.email || "No email registered";
     
-    // Update Avatar Images
+    // Update Avatar Images: topAvatar shows loggedInUser, personalAvatar shows target viewing user
     const topAvatar = document.getElementById("topUserAvatar");
     const personalAvatar = document.getElementById("personalAvatarImg");
-    if (topAvatar && state.currentUser.avatar_url) topAvatar.src = state.currentUser.avatar_url;
+    if (topAvatar && activeUser.avatar_url) topAvatar.src = activeUser.avatar_url;
     if (personalAvatar && state.currentUser.avatar_url) personalAvatar.src = state.currentUser.avatar_url;
     
-    // Check Authorization & Sidebar/Header Visibility
-    const isManager = state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User";
+    // Check Authorization & Sidebar/Header Visibility based on loggedInUser (activeUser)
+    const isManager = activeUser.role === "Manager" || activeUser.role === "Power User" || activeUser.role === "Super User";
     if (isManager) {
         appSidebar.classList.remove("hidden");
         tabManagerLink.classList.remove("hidden");
@@ -677,6 +740,18 @@ function onUserChanged() {
         }
     }
     
+    // Manager View-As Banner logic
+    const viewingUserBanner = document.getElementById("viewingUserBanner");
+    const viewingUserNameTag = document.getElementById("viewingUserNameTag");
+    if (viewingUserBanner) {
+        if (state.loggedInUser && state.currentUser.username !== state.loggedInUser.username) {
+            if (viewingUserNameTag) viewingUserNameTag.textContent = state.currentUser.fullname;
+            viewingUserBanner.classList.remove("hidden");
+        } else {
+            viewingUserBanner.classList.add("hidden");
+        }
+    }
+    
     renderActiveDashboard();
 }
 
@@ -691,6 +766,7 @@ function hideModal(modalEl) {
 // Render Dashboard Data based on selected user
 function renderActiveDashboard() {
     if (!state.currentUser) return;
+    const activeUser = state.loggedInUser || state.currentUser;
     
     // 1. Populate the Enrolled Course Filter select element on Personal tab
     const myEnrs = state.enrollments.filter(e => e.username === state.currentUser.username);
@@ -713,8 +789,8 @@ function renderActiveDashboard() {
     
     renderPersonalTab();
     
-    // 2. Render Manager Dashboard components if authorized
-    if (state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User") {
+    // 2. Render Manager Dashboard components if loggedInUser is authorized
+    if (activeUser.role === "Manager" || activeUser.role === "Power User" || activeUser.role === "Super User") {
         renderTeamProgressTable();
         renderEmployeeMgmtTable();
         renderCourseMgmtTable();

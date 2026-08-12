@@ -116,6 +116,17 @@
                         </div>
                     </div>
 
+                    <!-- Manager Impersonation / View-As Banner -->
+                    <div class="viewing-user-banner glass hidden mb-3" id="viewingUserBanner">
+                        <div class="banner-left flex-align-center gap-2">
+                            <span class="material-icons-round font-md color-warning">visibility</span>
+                            <span>Đang ở chế độ <strong>Xem tiến độ nhân viên</strong>: <strong id="viewingUserNameTag">...</strong></span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btnSwitchBackToSelf">
+                            <span class="material-icons-round font-xs">arrow_back</span> Trở về tài khoản của tôi
+                        </button>
+                    </div>
+
                     <!-- KPI Cards Row -->
                     <div class="kpi-grid">
                         <div class="kpi-card glass">
@@ -666,6 +677,12 @@
                             <span class="material-icons-round font-sm">visibility</span>
                         </button>
                     </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="remember-me-checkbox font-xs text-secondary flex-align-center gap-1 pointer">
+                        <input type="checkbox" id="rememberMeCheck" checked> Ghi nhớ thông tin đăng nhập trên thiết bị này
+                    </label>
                 </div>
 
                 <div id="loginErrorMsg" class="auth-error-msg hidden"></div>
