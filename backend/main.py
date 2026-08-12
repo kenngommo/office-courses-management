@@ -26,7 +26,8 @@ from backend.db_manager import (
     toggle_module_status,
     clone_course_campaign,
     clone_plan_campaign,
-    reorder_courses_in_plan
+    reorder_courses_in_plan,
+    update_module_duration
 )
 
 # Initialize sheet schema if not already present
@@ -364,6 +365,31 @@ def api_reorder_courses(req: ReorderCoursesRequest):
         if not success:
             raise HTTPException(status_code=400, detail="Không tìm thấy các khóa học trong Plan để sắp xếp.")
         return {"status": "success", "message": "Cập nhật thứ tự khóa học thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateModuleDurationRequest(BaseModel):
+    plan: Optional[str] = None
+    course_name: str
+    module_name: str
+    path: Optional[str] = None
+    duration: str
+    duration_minutes: int
+
+@app.post("/api/courses/update-duration")
+def api_update_module_duration(req: UpdateModuleDurationRequest):
+    try:
+        success = update_module_duration(
+            plan=req.plan,
+            course_name=req.course_name,
+            module_name=req.module_name,
+            path=req.path,
+            duration=req.duration,
+            duration_minutes=req.duration_minutes
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Không tìm thấy module để cập nhật thời lượng.")
+        return {"status": "success", "message": "Cập nhật thời lượng module thành công!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

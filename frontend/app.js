@@ -88,6 +88,9 @@ const btnProfileChangePwd = document.getElementById("btnProfileChangePwd");
 const campaignModal = document.getElementById("campaignModal");
 const campaignForm = document.getElementById("campaignForm");
 
+const editDurationModal = document.getElementById("editDurationModal");
+const editDurationForm = document.getElementById("editDurationForm");
+
 const userProfileBtn = document.getElementById("userProfileBtn");
 const userDropdownMenu = document.getElementById("userDropdownMenu");
 const btnOpenChangePassword = document.getElementById("btnOpenChangePassword");
@@ -600,6 +603,15 @@ function setupEventHandlers() {
     document.getElementById("btnCancelCampaignModal").onclick = () => hideModal(campaignModal);
 
     if (campaignForm) campaignForm.addEventListener("submit", submitCampaignForm);
+
+    document.getElementById("closeEditDurationModal").onclick = () => hideModal(editDurationModal);
+    document.getElementById("btnCancelEditDurationModal").onclick = () => hideModal(editDurationModal);
+    if (editDurationForm) editDurationForm.addEventListener("submit", submitEditDurationForm);
+
+    const edDurStringInput = document.getElementById("edDurString");
+    if (edDurStringInput) {
+        edDurStringInput.addEventListener("input", autoCalcEditDurationMinutes);
+    }
 
     // Open Add Forms
     document.getElementById("btnOpenAddEmployee").onclick = () => {
@@ -1554,7 +1566,16 @@ function renderCourseMgmtTable() {
                                             <strong class="module-name-text">${m.module_name}</strong>
                                             <span class="ml-2">${badgeHtml}</span>
                                         </td>
-                                        <td><span class="badge-dur">${m.duration || '-'}</span></td>
+                                        <td>
+                                            <div class="flex-align-center gap-1">
+                                                <span class="badge-dur">${m.duration || '-'}</span>
+                                                <button type="button" class="btn btn-secondary btn-icon-only btn-sm py-0 px-1" 
+                                                        onclick="event.stopPropagation(); openEditModuleDurationModal('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}', '${(m.duration || '').replace(/'/g, "\\'")}', ${m.duration_minutes || 0})" 
+                                                        title="Chỉnh sửa thời lượng module này">
+                                                    <span class="material-icons-round font-xs">edit</span>
+                                                </button>
+                                            </div>
+                                        </td>
                                         <td class="font-mono">${m.duration_minutes} phút</td>
                                         <td>
                                             <button type="button" class="toggle-switch-btn ${isActive ? 'is-active' : 'is-inactive'}" 
@@ -1641,6 +1662,68 @@ async function submitCampaignForm(e) {
         if (response.ok) {
             alert(resData.message || "Tạo Plan đào tạo mới thành công!");
             hideModal(campaignModal);
+            await refreshData();
+        } else {
+            alert(`Lỗi: ${resData.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
+    }
+}
+
+window.openEditModuleDurationModal = function(plan, courseName, path, moduleName, currentDuration, currentMinutes) {
+    document.getElementById("edDurPlan").value = plan || "";
+    document.getElementById("edDurCourseName").value = courseName;
+    document.getElementById("edDurPath").value = path || "";
+    document.getElementById("edDurModuleName").value = moduleName;
+    document.getElementById("edDurModuleDisplay").value = moduleName;
+    document.getElementById("edDurString").value = currentDuration;
+    document.getElementById("edDurMinutes").value = currentMinutes;
+
+    showModal(editDurationModal);
+};
+
+function autoCalcEditDurationMinutes() {
+    const val = document.getElementById("edDurString").value.trim();
+    if (!val) return;
+    
+    // Match HH:MM:SS or HH:MM
+    const parts = val.split(":");
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        const h = parseInt(parts[0]) || 0;
+        const m = parseInt(parts[1]) || 0;
+        const calculated = h * 60 + m;
+        if (calculated > 0) {
+            document.getElementById("edDurMinutes").value = calculated;
+        }
+    } else if (!isNaN(val)) {
+        document.getElementById("edDurMinutes").value = parseInt(val);
+    }
+}
+
+async function submitEditDurationForm(e) {
+    e.preventDefault();
+    const data = {
+        plan: document.getElementById("edDurPlan").value || null,
+        course_name: document.getElementById("edDurCourseName").value,
+        path: document.getElementById("edDurPath").value || null,
+        module_name: document.getElementById("edDurModuleName").value,
+        duration: document.getElementById("edDurString").value.trim(),
+        duration_minutes: parseInt(document.getElementById("edDurMinutes").value) || 0
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/update-duration`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const resData = await response.json();
+        if (response.ok) {
+            alert(resData.message || "Cập nhật thời lượng module thành công!");
+            hideModal(editDurationModal);
             await refreshData();
         } else {
             alert(`Lỗi: ${resData.detail}`);

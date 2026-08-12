@@ -216,6 +216,35 @@ def toggle_module_status(plan: Optional[str] = None, course_name: Optional[str] 
     wb.close()
     return updated
 
+def update_module_duration(plan: Optional[str], course_name: str, module_name: str, duration: str, duration_minutes: int, path: Optional[str] = None):
+    """Update duration string and duration_minutes for a specific module in sheet.xlsx."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách khóa học EPM V5"]
+    
+    updated = False
+    for r in range(2, ws.max_row + 1):
+        p_val = ws.cell(row=r, column=1).value
+        c_val = ws.cell(row=r, column=2).value
+        path_val = ws.cell(row=r, column=3).value
+        m_val = ws.cell(row=r, column=4).value
+        
+        match_plan = (p_val == plan) if plan else True
+        match_course = (c_val == course_name)
+        match_path = (path_val == path) if path is not None else True
+        match_module = (m_val == module_name)
+        
+        if match_plan and match_course and match_path and match_module:
+            ws.cell(row=r, column=5).value = str(duration)
+            ws.cell(row=r, column=6).value = int(duration_minutes)
+            updated = True
+            
+    if updated:
+        recalculate_formulas(ws)
+        wb.save(EXCEL_FILE)
+    wb.close()
+    return updated
+
 def clone_course_campaign(source_course_name: str, new_course_name: str, new_plan: Optional[str] = None, new_path: Optional[str] = None, source_path: Optional[str] = None):
     """Clone active modules of a course into a new independent course template / campaign."""
     init_db()

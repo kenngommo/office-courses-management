@@ -685,6 +685,48 @@
         </div>
     </div>
 
+    <!-- MODAL: EDIT MODULE DURATION -->
+    <div class="modal-backdrop" id="editDurationModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Chỉnh sửa thời lượng Module</h3>
+                <span class="material-icons-round close-btn" id="closeEditDurationModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="editDurationForm">
+                    <input type="hidden" id="edDurPlan">
+                    <input type="hidden" id="edDurCourseName">
+                    <input type="hidden" id="edDurPath">
+                    <input type="hidden" id="edDurModuleName">
+                    
+                    <div class="form-group mb-3">
+                        <label for="edDurModuleDisplay">Tên Module</label>
+                        <input type="text" id="edDurModuleDisplay" class="form-control" readonly disabled>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="edDurString">Thời lượng (Chuỗi hiển thị)</label>
+                        <input type="text" id="edDurString" class="form-control" required placeholder="Ví dụ: 02:45:00 hoặc 2h 45m">
+                        <small class="text-muted font-xs display-block mt-1">Định dạng khuyên dùng: HH:MM:SS (ví dụ: 01:30:00) hoặc 90 phút</small>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="edDurMinutes">Quy đổi ra Số phút (Minutes)</label>
+                        <input type="number" id="edDurMinutes" class="form-control" min="1" required placeholder="Ví dụ: 165">
+                        <small class="text-muted font-xs display-block mt-1">Tự động quy đổi từ thời lượng hoặc nhập thủ công số phút chính xác</small>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelEditDurationModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round font-sm">save</span> Cập nhật thời lượng
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- LOGIN SHIELD OVERLAY (BLOCKS CONTENT UNTIL LOGGED IN) -->
     <div class="login-overlay-backdrop active" id="loginOverlay">
         <div class="login-modal-box glass">
