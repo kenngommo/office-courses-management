@@ -85,6 +85,9 @@ const profileAvatarForm = document.getElementById("profileAvatarForm");
 const profileMsg = document.getElementById("profileMsg");
 const btnProfileChangePwd = document.getElementById("btnProfileChangePwd");
 
+const campaignModal = document.getElementById("campaignModal");
+const campaignForm = document.getElementById("campaignForm");
+
 const userProfileBtn = document.getElementById("userProfileBtn");
 const userDropdownMenu = document.getElementById("userDropdownMenu");
 const btnOpenChangePassword = document.getElementById("btnOpenChangePassword");
@@ -592,6 +595,11 @@ function setupEventHandlers() {
 
     document.getElementById("closeEnrollmentModal").onclick = () => hideModal(enrollmentModal);
     document.getElementById("btnCancelEnrollmentModal").onclick = () => hideModal(enrollmentModal);
+
+    document.getElementById("closeCampaignModal").onclick = () => hideModal(campaignModal);
+    document.getElementById("btnCancelCampaignModal").onclick = () => hideModal(campaignModal);
+
+    if (campaignForm) campaignForm.addEventListener("submit", submitCampaignForm);
 
     // Open Add Forms
     document.getElementById("btnOpenAddEmployee").onclick = () => {
@@ -1424,6 +1432,11 @@ function renderCourseMgmtTable() {
                             <span class="material-icons-round font-xs">${allCourseModulesActive ? 'check_circle' : 'do_not_disturb_on'}</span>
                             <span>${allCourseModulesActive ? 'Tất cả Active' : 'Bật/Tắt Khóa'}</span>
                         </button>
+                        <button type="button" class="btn btn-secondary btn-sm" 
+                                onclick="event.stopPropagation(); openSaveAsCampaignModal('${safePlan}', '${safeCourseName}', '${safePath}')"
+                                title="Lưu các module Active hiện tại thành 1 Khóa học / Đợt đào tạo mới">
+                            <span class="material-icons-round font-sm">content_copy</span> Lưu thành Đợt mới
+                        </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
                             <span>${modulesStatText}</span>
@@ -1500,6 +1513,71 @@ async function deleteCourseRecord(courseName) {
         }
     } catch (err) {
         console.error(err);
+    }
+}
+
+window.openSaveAsCampaignModal = function(planName, courseName, pathName) {
+    const matchingActive = state.courses.filter(c => 
+        c.course_name === courseName 
+        && (!pathName || c.path === pathName) 
+        && c.queue !== false
+    );
+    
+    if (matchingActive.length === 0) {
+        alert("Khóa học này hiện không có module Active nào để lưu thành Đợt mới.");
+        return;
+    }
+
+    document.getElementById("cmpSourceCourseName").value = courseName;
+    document.getElementById("cmpSourcePath").value = pathName || "";
+    document.getElementById("cmpPlan").value = planName;
+    document.getElementById("cmpNewCourseName").value = `${courseName} - FastTrack Q3`;
+    document.getElementById("cmpNewPath").value = pathName || "";
+
+    const totalMins = matchingActive.reduce((sum, c) => sum + (c.duration_minutes || 0), 0);
+    const cmpSummaryBox = document.getElementById("cmpSummaryBox");
+    if (cmpSummaryBox) {
+        cmpSummaryBox.innerHTML = `
+            <div class="calc-info-row">
+                <span><span class="material-icons-round font-xs">school</span> Khóa gốc: <strong>${courseName}</strong></span>
+            </div>
+            <div class="calc-info-row mt-1">
+                <span><span class="material-icons-round font-xs">task_alt</span> Module Active nhân bản: <strong class="text-success">${matchingActive.length} modules</strong> (${formatHoursMinutes(totalMins)})</span>
+            </div>
+        `;
+    }
+
+    showModal(campaignModal);
+};
+
+async function submitCampaignForm(e) {
+    e.preventDefault();
+    const data = {
+        source_course_name: document.getElementById("cmpSourceCourseName").value,
+        source_path: document.getElementById("cmpSourcePath").value || null,
+        new_plan: document.getElementById("cmpPlan").value,
+        new_course_name: document.getElementById("cmpNewCourseName").value,
+        new_path: document.getElementById("cmpNewPath").value || null
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/clone-campaign`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const resData = await response.json();
+        if (response.ok) {
+            alert(resData.message || "Tạo Đợt đào tạo mới thành công!");
+            hideModal(campaignModal);
+            await refreshData();
+        } else {
+            alert(`Lỗi: ${resData.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
     }
 }
 

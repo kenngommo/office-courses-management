@@ -648,6 +648,49 @@
         </div>
     </div>
 
+    <!-- MODAL: SAVE AS CAMPAIGN / PERIOD TEMPLATE -->
+    <div class="modal-backdrop" id="campaignModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Lưu thành Đợt đào tạo mới (Campaign)</h3>
+                <span class="material-icons-round close-btn" id="closeCampaignModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="campaignForm">
+                    <input type="hidden" id="cmpSourceCourseName">
+                    <input type="hidden" id="cmpSourcePath">
+                    
+                    <div class="form-group mb-3">
+                        <label for="cmpPlan">Phân loại khóa học (Plan)</label>
+                        <input type="text" id="cmpPlan" class="form-control" required placeholder="E.g. Plan: Oracle EPM">
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="cmpNewCourseName">Tên Khóa học / Đợt đào tạo mới</label>
+                        <input type="text" id="cmpNewCourseName" class="form-control" required placeholder="E.g. Become a Certified FCC Implementer - FastTrack Q3">
+                        <small class="text-muted font-xs display-block mt-1">Nên đặt tên kèm theo tên đợt hoặc giai đoạn (vd: FastTrack Q3, Campaign 2026)</small>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="cmpNewPath">Lộ trình con (Path - không bắt buộc)</label>
+                        <input type="text" id="cmpNewPath" class="form-control" placeholder="E.g. Basic Path / FastTrack Path">
+                    </div>
+
+                    <div class="calc-info-box font-sm glass mb-3" id="cmpSummaryBox">
+                        <!-- Populated via JS -->
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelCampaignModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round font-sm">content_copy</span> Tạo Đợt đào tạo mới
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- LOGIN SHIELD OVERLAY (BLOCKS CONTENT UNTIL LOGGED IN) -->
     <div class="login-overlay-backdrop active" id="loginOverlay">
         <div class="login-modal-box glass">

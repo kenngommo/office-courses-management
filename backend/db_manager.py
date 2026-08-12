@@ -216,6 +216,37 @@ def toggle_module_status(plan: Optional[str] = None, course_name: Optional[str] 
     wb.close()
     return updated
 
+def clone_course_campaign(source_course_name: str, new_course_name: str, new_plan: Optional[str] = None, new_path: Optional[str] = None, source_path: Optional[str] = None):
+    """Clone active modules of a course into a new independent course template / campaign."""
+    init_db()
+    all_courses = get_courses()
+    
+    # Filter active modules from source course
+    matching = [
+        c for c in all_courses 
+        if c["course_name"] == source_course_name 
+        and (not source_path or c["path"] == source_path)
+        and c.get("queue", True)
+    ]
+    
+    if not matching:
+        return False
+        
+    target_plan = new_plan or matching[0]["plan"]
+    target_path = new_path if new_path is not None else matching[0]["path"]
+    
+    modules_to_add = []
+    for m in matching:
+        modules_to_add.append({
+            "module_name": m["module_name"],
+            "duration": m["duration"],
+            "duration_minutes": m["duration_minutes"],
+            "queue": True
+        })
+        
+    add_course_modules(target_plan, new_course_name, target_path, modules_to_add)
+    return True
+
 import hashlib
 import hmac
 

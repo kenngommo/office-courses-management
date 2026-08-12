@@ -23,7 +23,8 @@ from backend.db_manager import (
     change_user_password,
     reset_user_password,
     update_user_avatar,
-    toggle_module_status
+    toggle_module_status,
+    clone_course_campaign
 )
 
 # Initialize sheet schema if not already present
@@ -304,6 +305,29 @@ def api_toggle_course_module(req: ToggleModuleRequest):
         if not success:
             raise HTTPException(status_code=404, detail="Không tìm thấy module/khóa học phù hợp.")
         return {"status": "success", "message": "Cập nhật trạng thái Active/Unactive thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CloneCampaignRequest(BaseModel):
+    source_course_name: str
+    source_path: Optional[str] = None
+    new_plan: Optional[str] = None
+    new_course_name: str
+    new_path: Optional[str] = None
+
+@app.post("/api/courses/clone-campaign")
+def api_clone_course_campaign(req: CloneCampaignRequest):
+    try:
+        success = clone_course_campaign(
+            source_course_name=req.source_course_name,
+            new_course_name=req.new_course_name,
+            new_plan=req.new_plan,
+            new_path=req.new_path,
+            source_path=req.source_path
+        )
+        if not success:
+            raise HTTPException(status_code=400, detail="Không tìm thấy module Active nào từ khóa học gốc để nhân bản.")
+        return {"status": "success", "message": f"Tạo Đợt đào tạo mới '{req.new_course_name}' thành công!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
