@@ -306,6 +306,7 @@ def authenticate_user(user_or_email: str, password_candidate: str):
     ws = wb["Danh sách nhân viên"]
     
     query = str(user_or_email).strip().lower()
+    candidate_pwd = str(password_candidate or "").strip()
     if not query:
         wb.close()
         return None
@@ -320,7 +321,8 @@ def authenticate_user(user_or_email: str, password_candidate: str):
         pwd_hash = str(ws.cell(row=r, column=6).value or "").strip()
         must_change = ws.cell(row=r, column=7).value
         
-        if u.lower() == query or (em and em.lower() == query):
+        em_prefix = em.split("@")[0].lower() if "@" in em else ""
+        if u.lower() == query or (em and em.lower() == query) or (em_prefix and em_prefix == query):
             found = {
                 "row": r,
                 "username": u,
@@ -337,7 +339,7 @@ def authenticate_user(user_or_email: str, password_candidate: str):
     if not found:
         return None
         
-    if verify_password(found["password_hash"], password_candidate):
+    if verify_password(found["password_hash"], candidate_pwd) or verify_password(found["password_hash"], password_candidate):
         name_for_avatar = found["english_name"] if found["english_name"] else found["fullname"]
         return {
             "username": found["username"],
