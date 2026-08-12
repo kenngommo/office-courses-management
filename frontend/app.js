@@ -342,7 +342,7 @@ const lblSlowCount = document.getElementById("lblSlowCount");
 const lblTooSlowCount = document.getElementById("lblTooSlowCount");
 
 // Tables
-const personalProgressTableBody = document.querySelector("#personalProgressTable tbody");
+const personalHierarchyContainer = document.getElementById("personalHierarchyContainer");
 const teamProgressTableBody = document.querySelector("#teamProgressTable tbody");
 const employeesTableBody = document.querySelector("#employeesTable tbody");
 const courseHierarchyContainer = document.getElementById("courseHierarchyContainer");
@@ -1463,9 +1463,10 @@ function renderPersonalTab() {
 
                 const isExamMod = /1z0-|exam|certification|professional/i.test(m.module_name);
                 const modIconName = isExamMod ? 'assignment_turned_in' : 'play_circle';
-                const safeCourse = m.course_name.replace(/'/g, "\\'");
-                const safePath = (m.path || "").replace(/'/g, "\\'");
-                const safeMod = m.module_name.replace(/'/g, "\\'");
+                const encUser = encodeURIComponent(state.currentUser.username);
+                const encCourse = encodeURIComponent(m.course_name);
+                const encPath = encodeURIComponent(m.path || "");
+                const encMod = encodeURIComponent(m.module_name);
 
                 return `
                     <tr>
@@ -1485,7 +1486,7 @@ function renderPersonalTab() {
                         <td>${getStatusBadge(currentStatus)}</td>
                         <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes)}</td>
                         <td class="actions-col">
-                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
+                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
                                 <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                             </button>
                         </td>
@@ -1735,6 +1736,10 @@ function getSpeedBadge(speed, status, plannedDate, startDate, durationMins) {
 
 // Open Progress Modal
 window.openProgressUpdateModal = function(username, courseName, path, moduleName, status, progress, start, comp, planned) {
+    try { if (username) username = decodeURIComponent(username); } catch(e) {}
+    try { if (courseName) courseName = decodeURIComponent(courseName); } catch(e) {}
+    try { if (path) path = decodeURIComponent(path); } catch(e) {}
+    try { if (moduleName) moduleName = decodeURIComponent(moduleName); } catch(e) {}
     const targetUsername = username || (state.currentUser ? state.currentUser.username : "");
     document.getElementById("progUsername").value = targetUsername;
     document.getElementById("progCourseName").value = courseName;
@@ -2064,9 +2069,10 @@ function renderTeamProgressTable() {
                                     const durationText = matchMod ? formatDuration(matchMod.duration, matchMod.duration_minutes) : (p.duration ? formatDuration(p.duration, p.duration_minutes) : '-');
                                     const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
                                     const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
-                                    const safeCourse = p.course_name.replace(/'/g, "\\'");
-                                    const safePath = (p.path || "").replace(/'/g, "\\'");
-                                    const safeMod = p.module_name.replace(/'/g, "\\'");
+                                    const encUser = encodeURIComponent(userData.username);
+                                    const encCourse = encodeURIComponent(p.course_name);
+                                    const encPath = encodeURIComponent(p.path || "");
+                                    const encMod = encodeURIComponent(p.module_name);
                                     const safeStart = (p.start_date || "").replace(/'/g, "\\'");
                                     const safeComp = (p.completion_date || "").replace(/'/g, "\\'");
                                     const safeTarget = (p.planned_completion_date || "").replace(/'/g, "\\'");
@@ -2089,7 +2095,7 @@ function renderTeamProgressTable() {
                                             <td>${getStatusBadge(p.status)}</td>
                                             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0)}</td>
                                             <td class="actions-col">
-                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${userData.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
+                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
                                                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                                                 </button>
                                             </td>
