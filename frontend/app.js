@@ -1402,19 +1402,21 @@ window.viewEmployeeDetail = function(username) {
     }
 };
 
-// TEAM PROGRESS HIERARCHICAL VIEW FOR MANAGER (LEVEL 1: PLAN -> LEVEL 2: COURSE -> LEVEL 3: EMPLOYEE PROGRESS)
+// TEAM PROGRESS HIERARCHICAL VIEW FOR MANAGER (LEVEL 1: USER -> LEVEL 2: PLAN -> LEVEL 3: COURSE/MODULES)
 function renderTeamProgressTable() {
     if (!teamHierarchyContainer) return;
 
-    const expandedPlanNames = new Set();
-    const expandedCourseKeys = new Set();
+    // Preserve expanded card state
+    const expandedUsernames = new Set();
+    const expandedUserPlanKeys = new Set();
+
     document.querySelectorAll("#teamHierarchyContainer .level1-card.expanded").forEach(c => {
-        const titleEl = c.querySelector(".plan-name");
-        if (titleEl) expandedPlanNames.add(titleEl.textContent.trim());
+        const usernameTag = c.getAttribute("data-username");
+        if (usernameTag) expandedUsernames.add(usernameTag);
     });
     document.querySelectorAll("#teamHierarchyContainer .level2-card.expanded").forEach(c => {
-        const titleEl = c.querySelector(".course-title");
-        if (titleEl) expandedCourseKeys.add(titleEl.textContent.trim());
+        const planKeyTag = c.getAttribute("data-user-plan-key");
+        if (planKeyTag) expandedUserPlanKeys.add(planKeyTag);
     });
 
     teamHierarchyContainer.innerHTML = "";
@@ -1429,108 +1431,126 @@ function renderTeamProgressTable() {
         return;
     }
 
-    // Group state.progress by Plan -> Course -> Records
-    const planMap = {};
+    // Group state.progress by User -> Plan -> Modules
+    const userMap = {};
+
     state.progress.forEach(p => {
+        const username = p.username;
+        if (!userMap[username]) {
+            const emp = state.users.find(u => u.username === username);
+            let empName = username;
+            let avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=3b82f6&color=fff&bold=true`;
+            if (emp) {
+                empName = emp.english_name ? `${emp.fullname} (${emp.english_name})` : emp.fullname;
+                if (emp.avatar_url) avatarUrl = emp.avatar_url;
+            }
+
+            userMap[username] = {
+                username: username,
+                fullname: empName,
+                avatar_url: avatarUrl,
+                plans: {},
+                totalModules: 0,
+                completedModules: 0
+            };
+        }
+
+        // Determine plan name
         const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
         const planName = p.plan || (matchCourse ? matchCourse.plan : "Khóa học khác");
 
-        if (!planMap[planName]) {
-            planMap[planName] = {
+        if (!userMap[username].plans[planName]) {
+            userMap[username].plans[planName] = {
                 planName: planName,
-                courses: {},
-                totalRecords: 0,
-                completedRecords: 0
+                records: [],
+                totalModules: 0,
+                completedModules: 0
             };
         }
 
-        const courseKey = p.path ? `${p.course_name}:::${p.path}` : p.course_name;
-        if (!planMap[planName].courses[courseKey]) {
-            planMap[planName].courses[courseKey] = {
-                course_name: p.course_name,
-                path: p.path || "",
-                records: []
-            };
-        }
+        userMap[username].plans[planName].records.push(p);
+        userMap[username].plans[planName].totalModules += 1;
+        if (p.status === "Completed") userMap[username].plans[planName].completedModules += 1;
 
-        planMap[planName].courses[courseKey].records.push(p);
-        planMap[planName].totalRecords += 1;
-        if (p.status === "Completed") planMap[planName].completedRecords += 1;
+        userMap[username].totalModules += 1;
+        if (p.status === "Completed") userMap[username].completedModules += 1;
     });
 
-    let planIdx = 0;
-    Object.values(planMap).forEach(plan => {
-        planIdx++;
-        const courseKeys = Object.keys(plan.courses);
-        const courseCount = courseKeys.length;
-        const planCardId = `team-plan-card-${planIdx}`;
+    let userIdx = 0;
+    Object.values(userMap).forEach(userData => {
+        userIdx++;
+        const planKeys = Object.keys(userData.plans);
+        const planCount = planKeys.length;
+        const userCardId = `team-user-card-${userIdx}`;
+        const userPercent = userData.totalModules > 0 ? Math.round((userData.completedModules / userData.totalModules) * 100) : 0;
 
-        const planCard = document.createElement("div");
-        planCard.className = "level1-card glass";
-        if (expandedPlanNames.has(plan.planName)) {
-            planCard.classList.add("expanded");
+        const userCard = document.createElement("div");
+        userCard.className = "level1-card glass";
+        userCard.setAttribute("data-username", userData.username);
+        if (expandedUsernames.has(userData.username)) {
+            userCard.classList.add("expanded");
         }
-        planCard.id = planCardId;
+        userCard.id = userCardId;
 
-        // Level 1 Header
-        planCard.innerHTML = `
-            <div class="level1-header" onclick="toggleLevel1('${planCardId}')">
+        // Level 1: User / Employee Header
+        userCard.innerHTML = `
+            <div class="level1-header" onclick="toggleLevel1('${userCardId}')">
                 <div class="level1-title-sec">
                     <span class="material-icons-round level1-chevron">keyboard_arrow_right</span>
-                    <span class="material-icons-round level1-icon">school</span>
+                    <img src="${userData.avatar_url}" class="table-user-avatar mr-2" alt="Avatar" style="width:36px; height:36px; border-radius:50%; border:2px solid var(--color-blue);">
                     <div class="level1-title-text">
-                        <h3 class="plan-name">${plan.planName}</h3>
-                        <span class="level1-subtitle">${t("level1_subtitle")} • <strong class="text-success">${plan.completedRecords}/${plan.totalRecords} ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</strong></span>
+                        <h3 class="plan-name">${userData.fullname}</h3>
+                        <span class="level1-subtitle"><span class="font-mono text-secondary font-xs">ID: ${userData.username}</span> • <strong class="text-success">${userData.completedModules}/${userData.totalModules} ${state.lang === 'en' ? 'completed' : 'hoàn thành'} (${userPercent}%)</strong></span>
                     </div>
                 </div>
                 <div class="level1-stats flex-align-center">
                     <span class="stat-badge count-badge">
-                        <span class="material-icons-round font-sm">menu_book</span> ${courseCount} ${state.lang === 'en' ? 'courses' : 'khóa học'}
+                        <span class="material-icons-round font-sm">assignment</span> ${planCount} ${state.lang === 'en' ? 'plans' : 'plan học'}
                     </span>
                     <span class="stat-badge time-badge">
-                        <span class="material-icons-round font-sm">groups</span> ${plan.totalRecords} ${state.lang === 'en' ? 'records' : 'bản ghi'}
+                        <span class="material-icons-round font-sm">menu_book</span> ${userData.totalModules} ${state.lang === 'en' ? 'modules' : 'module'}
                     </span>
                 </div>
             </div>
             <div class="level2-body">
-                <!-- Level 2 courses list -->
+                <!-- Level 2 plans list -->
             </div>
         `;
 
-        const level2Body = planCard.querySelector(".level2-body");
+        const level2Body = userCard.querySelector(".level2-body");
 
-        let courseIdx = 0;
-        courseKeys.forEach((cKey) => {
-            courseIdx++;
-            const courseObj = plan.courses[cKey];
-            const courseCardId = `team-course-card-${planIdx}-${courseIdx}`;
+        let planIdx = 0;
+        planKeys.forEach(pKey => {
+            planIdx++;
+            const planObj = userData.plans[pKey];
+            const userPlanKey = `${userData.username}:::${planObj.planName}`;
+            const planCardId = `team-plan-card-${userIdx}-${planIdx}`;
+            const planPercent = planObj.totalModules > 0 ? Math.round((planObj.completedModules / planObj.totalModules) * 100) : 0;
 
-            const courseCard = document.createElement("div");
-            courseCard.className = "level2-card";
-            if (expandedCourseKeys.has(courseObj.course_name)) {
-                courseCard.classList.add("expanded");
+            const planCard = document.createElement("div");
+            planCard.className = "level2-card";
+            planCard.setAttribute("data-user-plan-key", userPlanKey);
+            if (expandedUserPlanKeys.has(userPlanKey)) {
+                planCard.classList.add("expanded");
             }
-            courseCard.id = courseCardId;
+            planCard.id = planCardId;
 
-            const recordsCount = courseObj.records.length;
-            const completedCount = courseObj.records.filter(r => r.status === "Completed").length;
-
-            // Level 2 Course HTML
-            courseCard.innerHTML = `
-                <div class="level2-header" onclick="toggleLevel2Modules('${courseCardId}', event)">
+            // Level 2: Plan Card HTML
+            planCard.innerHTML = `
+                <div class="level2-header" onclick="toggleLevel2Modules('${planCardId}', event)">
                     <div class="level2-left">
-                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleLevel2Modules('${courseCardId}', event)" title="Xổ ra / Thu gọn danh sách nhân viên">
+                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleLevel2Modules('${planCardId}', event)" title="Xổ ra / Thu gọn các khóa học">
                             <span class="toggle-arrow">&gt;</span>
                         </button>
                         <div class="course-info">
-                            <h4 class="course-title">${courseObj.course_name}</h4>
-                            ${courseObj.path ? `<span class="path-pill"><span class="material-icons-round font-xs">alt_route</span> Lộ trình: ${courseObj.path}</span>` : ''}
+                            <h4 class="course-title"><span class="material-icons-round font-sm text-primary mr-1" style="vertical-align:middle;">school</span> ${planObj.planName}</h4>
+                            <span class="path-pill"><span class="material-icons-round font-xs">check_circle</span> Tiến độ Plan: ${planPercent}%</span>
                         </div>
                     </div>
                     <div class="level2-right flex-align-center gap-2">
                         <div class="course-stat-item">
-                            <span class="material-icons-round">groups</span>
-                            <span><strong>${completedCount}/${recordsCount}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</span>
+                            <span class="material-icons-round">book</span>
+                            <span><strong>${planObj.completedModules}/${planObj.totalModules}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</span>
                         </div>
                     </div>
                 </div>
@@ -1538,44 +1558,41 @@ function renderTeamProgressTable() {
                     <table class="level3-module-table data-table">
                         <thead>
                             <tr>
-                                <th>${t("col_employee")}</th>
+                                <th>${t("col_course")}</th>
                                 <th>${t("col_module")}</th>
-                                <th>${t("col_status")}</th>
+                                <th>${t("col_duration")}</th>
                                 <th>${t("col_target_date")}</th>
                                 <th>${t("col_progress")}</th>
+                                <th>${t("col_status")}</th>
                                 <th>${t("col_tracking")}</th>
                                 <th class="actions-col">${t("col_actions")}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${courseObj.records.map(p => {
-                                const emp = state.users.find(u => u.username === p.username);
-                                let employeeName = p.username;
-                                if (emp) {
-                                    employeeName = emp.english_name ? `${emp.fullname} (${emp.english_name})` : emp.fullname;
-                                }
-                                const avatarUrl = emp && emp.avatar_url ? emp.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(employeeName)}&background=3b82f6&color=fff&bold=true`;
-                                const safeUsername = p.username.replace(/'/g, "\\'");
+                            ${planObj.records.map(p => {
+                                const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
+                                const durationText = matchCourse ? `${matchCourse.duration_minutes || 0}m` : '-';
                                 const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
                                 const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
+                                const safeCourse = p.course_name.replace(/'/g, "\\'");
+                                const safePath = (p.path || "").replace(/'/g, "\\'");
+                                const safeMod = p.module_name.replace(/'/g, "\\'");
+                                const safeStart = (p.start_date || "").replace(/'/g, "\\'");
+                                const safeComp = (p.completion_date || "").replace(/'/g, "\\'");
+                                const safeTarget = (p.planned_completion_date || "").replace(/'/g, "\\'");
 
                                 return `
                                     <tr>
                                         <td>
-                                            <div class="user-cell-with-avatar">
-                                                <img src="${avatarUrl}" class="table-user-avatar" alt="Avatar">
-                                                <div>
-                                                    <strong>${employeeName}</strong>
-                                                    <div class="text-muted font-mono font-xs">ID: ${p.username}</div>
-                                                </div>
-                                            </div>
+                                            <strong>${p.course_name}</strong>
+                                            ${p.path ? `<div class="text-secondary font-xs">${p.path}</div>` : ''}
                                         </td>
                                         <td>
                                             <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ' : 'Bài học nội dung'}">${teamModIcon}</span>
                                             <strong>${p.module_name}</strong>
                                             ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
                                         </td>
-                                        <td>${getStatusBadge(p.status)}</td>
+                                        <td><span class="font-mono text-secondary">${durationText}</span></td>
                                         <td><span class="font-mono text-secondary">${p.planned_completion_date || '-'}</span></td>
                                         <td>
                                             <div class="prog-bar-cell">
@@ -1583,10 +1600,11 @@ function renderTeamProgressTable() {
                                                 <span class="font-mono">${p.progress_percent}%</span>
                                             </div>
                                         </td>
+                                        <td>${getStatusBadge(p.status)}</td>
                                         <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
                                         <td class="actions-col">
-                                            <button class="btn btn-secondary btn-sm" onclick="viewEmployeeDetail('${safeUsername}')" title="Soi chi tiết tiến độ bài học của nhân viên này">
-                                                <span class="material-icons-round font-sm">visibility</span> ${state.lang === 'en' ? 'Details' : 'Chi tiết'}
+                                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
+                                                <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                                             </button>
                                         </td>
                                     </tr>
@@ -1597,10 +1615,10 @@ function renderTeamProgressTable() {
                 </div>
             `;
 
-            level2Body.appendChild(courseCard);
+            level2Body.appendChild(planCard);
         });
 
-        teamHierarchyContainer.appendChild(planCard);
+        teamHierarchyContainer.appendChild(userCard);
     });
 }
 
@@ -2860,5 +2878,20 @@ window.setDateOffset = function(inputId, days) {
         d.setDate(d.getDate() + days);
         input.value = d.toISOString().split("T")[0];
         calculateAutoEndDate();
+    }
+};
+
+window.toggleLevel1 = function(cardId) {
+    const el = document.getElementById(cardId);
+    if (el) {
+        el.classList.toggle("expanded");
+    }
+};
+
+window.toggleLevel2Modules = function(cardId, event) {
+    if (event) event.stopPropagation();
+    const el = document.getElementById(cardId);
+    if (el) {
+        el.classList.toggle("expanded");
     }
 };
