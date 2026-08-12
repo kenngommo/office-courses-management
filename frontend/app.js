@@ -1430,19 +1430,46 @@ function getStatusBadge(status) {
 function getSpeedBadge(speed, status, plannedDate) {
     if (!plannedDate) return `<span class="text-muted">-</span>`;
     
+    let evaluatedSpeed = speed || "On-track";
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const pDate = new Date(plannedDate);
+        pDate.setHours(0, 0, 0, 0);
+
+        if (status === "Completed") {
+            // Keep speed calculated at completion time
+        } else if (status === "In Progress") {
+            if (today > pDate) {
+                const diffDays = Math.floor((today - pDate) / (1000 * 60 * 60 * 24));
+                evaluatedSpeed = diffDays <= 7 ? "Slow" : "Too slow";
+            } else {
+                evaluatedSpeed = "On-track";
+            }
+        } else {
+            // Not Started
+            if (today >= pDate) {
+                const diffDays = Math.floor((today - pDate) / (1000 * 60 * 60 * 24));
+                evaluatedSpeed = diffDays <= 7 ? "Slow" : "Too slow";
+            } else {
+                evaluatedSpeed = "On-track";
+            }
+        }
+    } catch (e) {}
+
     let cls = "badge-speed-ontrack";
     let txt = t("track_ontrack");
     let icon = "check_circle_outline";
     
-    if (speed === "Fast") {
+    if (evaluatedSpeed === "Fast") {
         cls = "badge-speed-fast";
         txt = t("track_fast");
         icon = "bolt";
-    } else if (speed === "Slow") {
+    } else if (evaluatedSpeed === "Slow") {
         cls = "badge-speed-slow";
         txt = t("track_slow");
         icon = "history";
-    } else if (speed === "Too slow") {
+    } else if (evaluatedSpeed === "Too slow") {
         cls = "badge-speed-tooslow";
         txt = t("track_too_slow");
         icon = "warning";

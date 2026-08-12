@@ -730,6 +730,8 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
     try:
         if isinstance(planned_date_str, datetime):
             planned_date = planned_date_str.date()
+        elif isinstance(planned_date_str, date):
+            planned_date = planned_date_str
         else:
             planned_date = datetime.strptime(str(planned_date_str).split()[0], "%Y-%m-%d").date()
     except Exception:
@@ -742,6 +744,8 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
             try:
                 if isinstance(completion_date_str, datetime):
                     comp_date = completion_date_str.date()
+                elif isinstance(completion_date_str, date):
+                    comp_date = completion_date_str
                 else:
                     comp_date = datetime.strptime(str(completion_date_str).split()[0], "%Y-%m-%d").date()
             except Exception:
@@ -753,11 +757,21 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
             return "Fast"
         else:
             return "Slow"
-    else:
-        # Not Started or In Progress
+    elif status == "In Progress":
         if today <= planned_date:
             return "On-track"
         else:
+            diff_days = (today - planned_date).days
+            if diff_days <= 7:
+                return "Slow"
+            else:
+                return "Too slow"
+    else:
+        # Not Started
+        if today < planned_date:
+            return "On-track"
+        else:
+            # If today >= planned_date and user HAS NOT STARTED yet
             diff_days = (today - planned_date).days
             if diff_days <= 7:
                 return "Slow"
