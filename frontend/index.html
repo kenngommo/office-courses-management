@@ -67,6 +67,11 @@
                     </div>
                 </div>
 
+                <div class="lang-toggle-btn mr-2" id="langToggleBtn" title="Switch Language / Chuyển đổi ngôn ngữ">
+                    <span class="material-icons-round font-sm">language</span>
+                    <span id="currentLangCode">VN</span>
+                </div>
+
                 <div class="theme-toggle" id="themeToggleBtn" title="Chuyển đổi giao diện Sáng / Tối">
                     <span class="material-icons-round">light_mode</span>
                 </div>
@@ -79,11 +84,11 @@
                 <ul class="nav-menu">
                     <li class="nav-item active" id="tabEmployeeLink" data-tab="employee-tab">
                         <span class="material-icons-round">dashboard</span>
-                        <span>Tiến độ cá nhân</span>
+                        <span data-i18n="tab_my_progress">Tiến độ cá nhân</span>
                     </li>
                     <li class="nav-item hidden" id="tabManagerLink" data-tab="manager-tab">
                         <span class="material-icons-round">analytics</span>
-                        <span>Quản lý nhóm</span>
+                        <span data-i18n="tab_overall_progress">Quản lý nhóm</span>
                     </li>
                 </ul>
                 <div class="sidebar-bottom-sec">
@@ -237,16 +242,16 @@
                     <!-- Nav sub-tabs for Manager -->
                     <div class="manager-subnav">
                         <button class="subnav-btn active" data-subtab="team-progress-subtab">
-                            <span class="material-icons-round">groups</span> Tiến độ nhân viên
+                            <span class="material-icons-round">groups</span> <span data-i18n="tab_overall_progress">Tiến độ nhân viên</span>
                         </button>
                         <button class="subnav-btn" data-subtab="employee-mgmt-subtab">
-                            <span class="material-icons-round">person_add</span> Quản lý nhân viên
+                            <span class="material-icons-round">person_add</span> <span data-i18n="tab_emp_mgmt">Quản lý nhân viên</span>
                         </button>
                         <button class="subnav-btn" data-subtab="course-mgmt-subtab">
-                            <span class="material-icons-round">library_books</span> Quản lý khóa học
+                            <span class="material-icons-round">library_books</span> <span data-i18n="tab_course_mgmt">Quản lý khóa học</span>
                         </button>
                         <button class="subnav-btn" data-subtab="enrollment-subtab">
-                            <span class="material-icons-round">assignment_turned_in</span> Đăng ký khóa học
+                            <span class="material-icons-round">assignment_turned_in</span> <span data-i18n="tab_enr_mgmt">Đăng ký khóa học</span>
                         </button>
                     </div>
 
@@ -331,13 +336,13 @@
                             </div>
                             <div class="mgmt-actions-row">
                                 <button class="btn btn-secondary btn-sm" id="btnExpandAllPlans">
-                                    <span class="material-icons-round font-sm">unfold_more</span> Mở tất cả
+                                    <span class="material-icons-round font-sm">unfold_more</span> <span data-i18n="btn_expand_all">Mở tất cả</span>
                                 </button>
                                 <button class="btn btn-secondary btn-sm" id="btnCollapseAllPlans">
-                                    <span class="material-icons-round font-sm">unfold_less</span> Thu gọn tất cả
+                                    <span class="material-icons-round font-sm">unfold_less</span> <span data-i18n="btn_collapse_all">Thu gọn tất cả</span>
                                 </button>
                                 <button class="btn btn-primary" id="btnOpenAddCourse">
-                                    <span class="material-icons-round">add</span> Tạo khóa học mới
+                                    <span class="material-icons-round">add</span> <span data-i18n="btn_create_course">Tạo khóa học mới</span>
                                 </button>
                             </div>
                         </div>
@@ -353,7 +358,7 @@
                         <div class="pane-header flex-header">
                             <h2>Đăng ký & Lập lịch khóa học cho nhân viên</h2>
                             <button class="btn btn-primary" id="btnOpenAddEnrollment">
-                                <span class="material-icons-round">add</span> Đăng ký khóa học
+                                <span class="material-icons-round">add</span> <span data-i18n="btn_add_enr">+ Đăng ký Lộ trình mới</span>
                             </button>
                         </div>
 

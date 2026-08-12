@@ -216,6 +216,27 @@ body {
     background: rgba(255, 255, 255, 0.1);
 }
 
+.lang-toggle-btn {
+    cursor: pointer;
+    padding: 0.35rem 0.65rem;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--color-blue);
+}
+
 /* Sidebar Navigation */
 .main-layout {
     display: flex;

@@ -7,8 +7,198 @@ let state = {
     currentUser: null,  // Target user being viewed in personal progress dashboard
     courses: [],
     progress: [],
-    enrollments: []
+    enrollments: [],
+    lang: localStorage.getItem("epm_lang") || "vi"
 };
+
+// MULTILINGUAL (i18n) DICTIONARY
+const i18n = {
+    vi: {
+        brand_name: "EPM Courses Hub",
+        viewing_as_prefix: "Đang xem tiến độ của nhân viên:",
+        return_to_my_account: "[Trở về tài khoản của tôi]",
+        my_account_opt: "⭐ Tài khoản của tôi",
+        user_selector_label: "Chuyển tài khoản (Manager)",
+        manage_account: "Quản lý tài khoản",
+        change_password: "Đổi mật khẩu",
+        logout: "Đăng xuất",
+
+        tab_my_progress: "Tiến độ cá nhân",
+        tab_overall_progress: "Quản lý nhóm",
+        
+        stat_total_modules: "Tổng số Module",
+        stat_avg_speed: "Tốc độ trung bình",
+        stat_ontrack: "Đúng tiến độ",
+        stat_ahead: "Học nhanh",
+        stat_slow: "Chậm tiến độ",
+        stat_critical: "Quá chậm",
+        
+        filter_all_emp: "-- Tất cả nhân viên --",
+        filter_all_plans: "-- Tất cả Plan --",
+        filter_all_courses: "-- Tất cả khóa học --",
+        filter_all_status: "-- Tất cả trạng thái --",
+        filter_all_tracking: "-- Tất cả tiến độ --",
+
+        btn_create_course: "+ Tạo khóa học mới",
+        btn_expand_all: "Xổ ra tất cả",
+        btn_collapse_all: "Thu gọn tất cả",
+        btn_add_emp: "+ Thêm nhân viên mới",
+        btn_add_enr: "+ Đăng ký Lộ trình mới",
+
+        col_employee: "Nhân viên",
+        col_course_plan: "Tên Khóa học / Plan",
+        col_path: "Lộ trình (Path)",
+        col_module: "Module bài học",
+        col_status: "Trạng thái",
+        col_progress: "Tiến độ (%)",
+        col_start_date: "Ngày bắt đầu",
+        col_actual_end: "Hoàn thành thực tế",
+        col_planned_end: "Hoàn thành dự kiến",
+        col_tracking: "Tốc độ tiến độ",
+
+        col_username: "Username",
+        col_fullname: "Họ và tên",
+        col_email: "Email",
+        col_role: "Vai trò",
+        col_pwd_status: "Trạng thái Mật khẩu",
+        col_actions: "Thao tác",
+
+        col_scope: "Phân loại Đăng ký",
+        col_plan_course: "Plan / Khóa học",
+        col_ratio: "Hệ số Ratio",
+        col_daily_hours: "Giờ học / ngày",
+        col_study_days: "Số ngày học",
+        col_workweek: "Chế độ làm việc",
+
+        status_completed: "Completed",
+        status_in_progress: "In Progress",
+        status_not_started: "Not Started",
+        track_ontrack: "Đúng tiến độ",
+        track_fast: "Học nhanh",
+        track_slow: "Chậm",
+        track_too_slow: "Quá chậm",
+
+        level1_subtitle: "Level 1: Phân loại khoá học (Plan)",
+        btn_save_as_plan: "Lưu thành Plan mới",
+        btn_add_module: "Thêm Module",
+        btn_active: "Active",
+        btn_inactive: "Inactive",
+
+        lbl_remember_me: "Lưu thông tin đăng nhập",
+        lbl_forgot_password: "Quên mật khẩu?"
+    },
+    en: {
+        brand_name: "EPM Courses Hub",
+        viewing_as_prefix: "Viewing progress for employee:",
+        return_to_my_account: "[Return to My Account]",
+        my_account_opt: "⭐ My Account",
+        user_selector_label: "Switch Account (Manager)",
+        manage_account: "Manage Account",
+        change_password: "Change Password",
+        logout: "Log Out",
+
+        tab_my_progress: "My Progress",
+        tab_overall_progress: "Team Dashboard",
+
+        stat_total_modules: "Total Modules",
+        stat_avg_speed: "Average Speed",
+        stat_ontrack: "On Track",
+        stat_ahead: "Ahead of Schedule",
+        stat_slow: "Slow",
+        stat_critical: "Critical Delay",
+        
+        filter_all_emp: "-- All Employees --",
+        filter_all_plans: "-- All Plans --",
+        filter_all_courses: "-- All Courses --",
+        filter_all_status: "-- All Statuses --",
+        filter_all_tracking: "-- All Progress Speeds --",
+
+        btn_create_course: "+ Create New Course",
+        btn_expand_all: "Expand All",
+        btn_collapse_all: "Collapse All",
+        btn_add_emp: "+ Add New Employee",
+        btn_add_enr: "+ Register Schedule",
+
+        col_employee: "Employee",
+        col_course_plan: "Course / Plan Name",
+        col_path: "Path",
+        col_module: "Module Name",
+        col_status: "Status",
+        col_progress: "Progress (%)",
+        col_start_date: "Start Date",
+        col_actual_end: "Actual Completion Date",
+        col_planned_end: "Planned Completion Date",
+        col_tracking: "Tracking Speed",
+
+        col_username: "Username",
+        col_fullname: "Full Name",
+        col_email: "Email",
+        col_role: "Role",
+        col_pwd_status: "Password Status",
+        col_actions: "Actions",
+
+        col_scope: "Enrollment Scope",
+        col_plan_course: "Plan / Course",
+        col_ratio: "Ratio Multiplier",
+        col_daily_hours: "Daily Hours",
+        col_study_days: "Study Days",
+        col_workweek: "Workweek Schedule",
+
+        status_completed: "Completed",
+        status_in_progress: "In Progress",
+        status_not_started: "Not Started",
+        track_ontrack: "On Track",
+        track_fast: "Ahead",
+        track_slow: "Slow",
+        track_too_slow: "Critical Delay",
+
+        level1_subtitle: "Level 1: Course Classification (Plan)",
+        btn_save_as_plan: "Save as New Plan",
+        btn_add_module: "Add Module",
+        btn_active: "Active",
+        btn_inactive: "Inactive",
+
+        lbl_remember_me: "Remember Me",
+        lbl_forgot_password: "Forgot Password?"
+    }
+};
+
+function t(key) {
+    const lang = state.lang || "vi";
+    return (i18n[lang] && i18n[lang][key]) || (i18n["vi"] && i18n["vi"][key]) || key;
+}
+
+function updateLanguageUI() {
+    const currentLangCode = document.getElementById("currentLangCode");
+    if (currentLangCode) {
+        currentLangCode.textContent = state.lang === "en" ? "EN" : "VN";
+    }
+
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (key) {
+            el.textContent = t(key);
+        }
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        if (key) {
+            el.placeholder = t(key);
+        }
+    });
+
+    if (state.loggedInUser) {
+        renderSelectors();
+        renderManagerDashboard();
+    }
+}
+
+function setLanguage(lang) {
+    state.lang = lang;
+    localStorage.setItem("epm_lang", lang);
+    updateLanguageUI();
+}
 
 // DOM Elements
 const userSelector = document.getElementById("userSelector");
@@ -104,6 +294,7 @@ const btnLogout = document.getElementById("btnLogout");
 // INIT FUNCTION
 window.addEventListener("DOMContentLoaded", async () => {
     setupEventHandlers();
+    updateLanguageUI();
     await refreshData();
     
     // Check saved remember credentials
@@ -535,6 +726,14 @@ function setupEventHandlers() {
             icon.textContent = "light_mode";
         }
     });
+
+    const langToggleBtn = document.getElementById("langToggleBtn");
+    if (langToggleBtn) {
+        langToggleBtn.onclick = () => {
+            const nextLang = state.lang === "vi" ? "en" : "vi";
+            setLanguage(nextLang);
+        };
+    }
 
     // Sidebar Collapse Trigger
     sidebarToggleBtn.addEventListener("click", () => {
@@ -997,13 +1196,13 @@ function renderPersonalTab() {
 // Helpers for badges
 function getStatusBadge(status) {
     let cls = "badge-status-notstarted";
-    let txt = "Chưa học";
+    let txt = t("status_not_started");
     if (status === "In Progress") {
         cls = "badge-status-inprogress";
-        txt = "Đang học";
+        txt = t("status_in_progress");
     } else if (status === "Completed") {
         cls = "badge-status-completed";
-        txt = "Hoàn thành";
+        txt = t("status_completed");
     }
     return `<span class="badge ${cls}">${txt}</span>`;
 }
@@ -1012,20 +1211,20 @@ function getSpeedBadge(speed, status, plannedDate) {
     if (!plannedDate) return `<span class="text-muted">-</span>`;
     
     let cls = "badge-speed-ontrack";
-    let txt = "Đúng tiến độ";
+    let txt = t("track_ontrack");
     let icon = "check_circle_outline";
     
     if (speed === "Fast") {
         cls = "badge-speed-fast";
-        txt = "Học nhanh";
+        txt = t("track_fast");
         icon = "bolt";
     } else if (speed === "Slow") {
         cls = "badge-speed-slow";
-        txt = "Chậm tiến độ";
+        txt = t("track_slow");
         icon = "history";
     } else if (speed === "Too slow") {
         cls = "badge-speed-tooslow";
-        txt = "Quá chậm";
+        txt = t("track_too_slow");
         icon = "warning";
     }
     return `<span class="badge ${cls}"><span class="material-icons-round" style="font-size:0.9rem">${icon}</span> ${txt}</span>`;
@@ -1468,12 +1667,12 @@ function renderCourseMgmtTable() {
                     <span class="material-icons-round level1-icon">school</span>
                     <div class="level1-title-text">
                         <h3 class="plan-name">${plan.planName}</h3>
-                        <span class="level1-subtitle">Level 1: Phân loại khoá học (Plan) • <strong class="text-success">${plan.activeModules}/${plan.totalModules} modules active</strong></span>
+                        <span class="level1-subtitle">${t("level1_subtitle")} • <strong class="text-success">${plan.activeModules}/${plan.totalModules} modules active</strong></span>
                     </div>
                 </div>
                 <div class="level1-stats flex-align-center">
                     <span class="stat-badge count-badge">
-                        <span class="material-icons-round font-sm">menu_book</span> ${courseCount} khóa học
+                        <span class="material-icons-round font-sm">menu_book</span> ${courseCount} ${state.lang === 'en' ? 'courses' : 'khóa học'}
                     </span>
                     <span class="stat-badge time-badge">
                         <span class="material-icons-round font-sm">schedule</span> ${planDurationFormatted} (Active)
@@ -1481,7 +1680,7 @@ function renderCourseMgmtTable() {
                     <button type="button" class="btn btn-secondary btn-sm ml-2" 
                             onclick="event.stopPropagation(); openSaveAsPlanModal('${safePlan}')" 
                             title="Lưu tất cả các khóa & module đang Active của Plan này thành 1 Plan đào tạo mới">
-                        <span class="material-icons-round font-sm">content_copy</span> Lưu thành Plan mới
+                        <span class="material-icons-round font-sm">content_copy</span> ${t("btn_save_as_plan")}
                     </button>
                 </div>
             </div>
@@ -1542,7 +1741,7 @@ function renderCourseMgmtTable() {
                         <button type="button" class="btn btn-secondary btn-sm" 
                                 onclick="event.stopPropagation(); openAddModuleToCourseModal('${safePlan}', '${safeCourseName}', '${safePath}')" 
                                 title="Thêm module mới vào khóa học này">
-                            <span class="material-icons-round font-xs">add</span> Thêm Module
+                            <span class="material-icons-round font-xs">add</span> ${t("btn_add_module")}
                         </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
