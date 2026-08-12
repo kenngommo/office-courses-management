@@ -1014,10 +1014,10 @@ function setupEventHandlers() {
         e.preventDefault();
         e.stopPropagation();
 
-        const username = decodeURIComponent(btn.getAttribute("data-username") || "");
-        const course = decodeURIComponent(btn.getAttribute("data-course") || "");
-        const path = decodeURIComponent(btn.getAttribute("data-path") || "");
-        const module = decodeURIComponent(btn.getAttribute("data-module") || "");
+        const username = safeDecode(btn.getAttribute("data-username"));
+        const course = safeDecode(btn.getAttribute("data-course"));
+        const path = safeDecode(btn.getAttribute("data-path"));
+        const module = safeDecode(btn.getAttribute("data-module"));
         const status = btn.getAttribute("data-status") || "Not Started";
         const progress = parseFloat(btn.getAttribute("data-progress") || "0");
         const start = btn.getAttribute("data-start") || "";
@@ -1507,15 +1507,16 @@ function renderPersonalTab() {
                         <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes)}</td>
                         <td class="actions-col">
                             <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
-                                data-username="${encodeURIComponent(state.currentUser.username)}"
-                                data-course="${encodeURIComponent(m.course_name)}"
-                                data-path="${encodeURIComponent(m.path || '')}"
-                                data-module="${encodeURIComponent(m.module_name)}"
+                                data-username="${encUser}"
+                                data-course="${encCourse}"
+                                data-path="${encPath}"
+                                data-module="${encMod}"
                                 data-status="${currentStatus}"
                                 data-progress="${currentPercent}"
                                 data-start="${startDate}"
                                 data-comp="${compDate}"
-                                data-planned="${plannedDate}">
+                                data-planned="${plannedDate}"
+                                onclick="event.stopPropagation(); openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
                                 <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                             </button>
                         </td>
@@ -1763,51 +1764,77 @@ function getSpeedBadge(speed, status, plannedDate, startDate, durationMins) {
     return `<span class="badge ${cls}"><span class="material-icons-round" style="font-size:0.9rem">${icon}</span> ${txt}</span>`;
 }
 
+// Safe decode helper
+function safeDecode(str) {
+    if (!str) return "";
+    try {
+        return decodeURIComponent(str);
+    } catch (e) {
+        return str;
+    }
+}
+
 // Open Progress Modal
 window.openProgressUpdateModal = function(username, courseName, path, moduleName, status, progress, start, comp, planned) {
-    try { if (username) username = decodeURIComponent(username); } catch(e) {}
-    try { if (courseName) courseName = decodeURIComponent(courseName); } catch(e) {}
-    try { if (path) path = decodeURIComponent(path); } catch(e) {}
-    try { if (moduleName) moduleName = decodeURIComponent(moduleName); } catch(e) {}
+    username = safeDecode(username);
+    courseName = safeDecode(courseName);
+    path = safeDecode(path);
+    moduleName = safeDecode(moduleName);
+    status = safeDecode(status);
+    start = safeDecode(start);
+    comp = safeDecode(comp);
+    planned = safeDecode(planned);
+
     const targetUsername = username || (state.currentUser ? state.currentUser.username : "");
-    document.getElementById("progUsername").value = targetUsername;
-    document.getElementById("progCourseName").value = courseName;
-    document.getElementById("progPath").value = path || "";
-    document.getElementById("progModuleName").value = moduleName;
+    const elUser = document.getElementById("progUsername");
+    const elCourse = document.getElementById("progCourseName");
+    const elPath = document.getElementById("progPath");
+    const elModule = document.getElementById("progModuleName");
+    const elInfoCourse = document.getElementById("progInfoCourse");
+    const elInfoModule = document.getElementById("progInfoModule");
+    const elStatus = document.getElementById("progStatus");
+    const elPercent = document.getElementById("progPercent");
+    const elPercentLabel = document.getElementById("percentLabel");
+    const elStart = document.getElementById("progStartDate");
+    const elComp = document.getElementById("progCompDate");
+    const elPlanned = document.getElementById("progPlannedDate");
+
+    if (elUser) elUser.value = targetUsername;
+    if (elCourse) elCourse.value = courseName;
+    if (elPath) elPath.value = path || "";
+    if (elModule) elModule.value = moduleName;
     
-    document.getElementById("progInfoCourse").textContent = courseName;
-    document.getElementById("progInfoModule").textContent = moduleName;
+    if (elInfoCourse) elInfoCourse.textContent = courseName;
+    if (elInfoModule) elInfoModule.textContent = moduleName;
     
-    document.getElementById("progStatus").value = status;
-    document.getElementById("progPercent").value = progress;
-    document.getElementById("percentLabel").textContent = `${progress}%`;
+    if (elStatus) elStatus.value = status || "Not Started";
+    if (elPercent) elPercent.value = progress || 0;
+    if (elPercentLabel) elPercentLabel.textContent = `${progress || 0}%`;
     
-    document.getElementById("progStartDate").value = start || "";
-    document.getElementById("progCompDate").value = comp || "";
+    if (elStart) elStart.value = start || "";
+    if (elComp) elComp.value = comp || "";
     
-    // Default deadline for short modules (1-3h): Same day or Next day
     const matchMod = state.courses.find(c => c.course_name === courseName && (c.path || "") === (path || "") && c.module_name === moduleName);
     const modMins = matchMod ? (matchMod.duration_minutes || 0) : 0;
 
-    if (!planned) {
+    if (!planned && elPlanned) {
         const targetD = new Date();
         if (modMins > 0 && modMins <= 120) {
-            // 1-2 hours: Same day completion
-            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+            elPlanned.value = targetD.toISOString().split("T")[0];
         } else if (modMins > 120 && modMins <= 180) {
-            // 3 hours: Next day completion
             targetD.setDate(targetD.getDate() + 1);
-            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+            elPlanned.value = targetD.toISOString().split("T")[0];
         } else {
             targetD.setDate(targetD.getDate() + 14);
-            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+            elPlanned.value = targetD.toISOString().split("T")[0];
         }
-    } else {
-        document.getElementById("progPlannedDate").value = planned;
+    } else if (elPlanned) {
+        elPlanned.value = planned;
     }
     
     updateLanguageUI();
-    showModal(progressModal);
+    const pModal = document.getElementById("progressModal");
+    if (pModal) showModal(pModal);
 };
 
 // Form Progress Submit
@@ -2125,10 +2152,10 @@ function renderTeamProgressTable() {
                                             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0)}</td>
                                             <td class="actions-col">
                                                 <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
-                                                    data-username="${encodeURIComponent(userData.username)}"
-                                                    data-course="${encodeURIComponent(p.course_name)}"
-                                                    data-path="${encodeURIComponent(p.path || '')}"
-                                                    data-module="${encodeURIComponent(p.module_name)}"
+                                                    data-username="${encUser}"
+                                                    data-course="${encCourse}"
+                                                    data-path="${encPath}"
+                                                    data-module="${encMod}"
                                                     data-status="${p.status}"
                                                     data-progress="${p.progress_percent}"
                                                     data-start="${safeStart}"
