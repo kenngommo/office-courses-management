@@ -207,32 +207,22 @@
 
                     <!-- User Course Progress Table Card -->
                     <div class="data-card glass">
-                        <div class="card-header">
+                        <div class="card-header flex-header">
                             <div class="header-title-sec">
                                 <span class="material-icons-round">list_alt</span>
                                 <h3 data-i18n="title_my_learning_path">Danh sách lộ trình học của tôi</h3>
                             </div>
+                            <div class="mgmt-actions-row">
+                                <button class="btn btn-secondary btn-sm" id="btnExpandAllPersonalPlans">
+                                    <span class="material-icons-round font-sm">unfold_more</span> <span data-i18n="btn_expand_all">Mở tất cả</span>
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="btnCollapseAllPersonalPlans">
+                                    <span class="material-icons-round font-sm">unfold_less</span> <span data-i18n="btn_collapse_all">Thu gọn tất cả</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="table-responsive">
-                            <table class="data-table" id="personalProgressTable">
-                                <thead>
-                                    <tr>
-                                        <th data-i18n="col_plan">Phân loại (Plan)</th>
-                                        <th data-i18n="col_course">Khóa học (Course)</th>
-                                        <th data-i18n="col_path">Lộ trình (Path)</th>
-                                        <th data-i18n="col_module">Tên Module</th>
-                                        <th data-i18n="col_duration">Thời lượng</th>
-                                        <th data-i18n="col_target_date">Hạn hoàn thành (Target)</th>
-                                        <th data-i18n="col_progress">Tiến độ (%)</th>
-                                        <th data-i18n="col_status">Trạng thái</th>
-                                        <th data-i18n="col_tracking">Đánh giá</th>
-                                        <th class="actions-col" data-i18n="col_actions">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Rendered dynamically -->
-                                </tbody>
-                            </table>
+                        <div id="personalHierarchyContainer" class="p-3">
+                            <!-- Rendered dynamically as hierarchy: Level 1 Plan -> Level 2 Course -> Level 3 Path (if any) -> Level 4 Modules Table -->
                         </div>
                     </div>
                 </section>

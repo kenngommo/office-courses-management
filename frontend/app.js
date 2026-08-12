@@ -992,6 +992,21 @@ function setupEventHandlers() {
         };
     }
 
+    const btnExpandAllPersonalPlans = document.getElementById("btnExpandAllPersonalPlans");
+    const btnCollapseAllPersonalPlans = document.getElementById("btnCollapseAllPersonalPlans");
+    if (btnExpandAllPersonalPlans && btnCollapseAllPersonalPlans) {
+        btnExpandAllPersonalPlans.onclick = () => {
+            document.querySelectorAll("#personalHierarchyContainer .level1-card").forEach(c => c.classList.add("expanded"));
+            document.querySelectorAll("#personalHierarchyContainer .level2-card").forEach(c => c.classList.add("expanded"));
+            document.querySelectorAll("#personalHierarchyContainer .level3-card").forEach(c => c.classList.add("expanded"));
+        };
+        btnCollapseAllPersonalPlans.onclick = () => {
+            document.querySelectorAll("#personalHierarchyContainer .level1-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#personalHierarchyContainer .level2-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#personalHierarchyContainer .level3-card").forEach(c => c.classList.remove("expanded"));
+        };
+    }
+
     document.getElementById("btnOpenAddEnrollment").onclick = () => {
         document.getElementById("enrollmentModalTitle").textContent = "Đăng ký lộ trình / khóa học cho nhân viên";
         const enrUser = document.getElementById("enrUsername");
@@ -1332,68 +1347,296 @@ function renderPersonalTab() {
     lblSlowCount.textContent = statusCounts.Slow;
     lblTooSlowCount.textContent = statusCounts["Too slow"];
     
-    // 4. Render Personal Progress Table
-    personalProgressTableBody.innerHTML = "";
-    
-    userEnrolledCourses.forEach(courseModule => {
-        const userModuleProg = myProgress.find(p => 
-            p.course_name === courseModule.course_name && 
-            (p.path || "") === (courseModule.path || "") && 
-            p.module_name === courseModule.module_name
-        );
-        
-        const tr = document.createElement("tr");
-        
-        const currentStatus = userModuleProg ? userModuleProg.status : "Not Started";
-        const currentPercent = userModuleProg ? userModuleProg.progress_percent : 0;
-        const speedStatus = userModuleProg ? userModuleProg.tracking_status : "On-track";
-        const plannedDate = userModuleProg ? userModuleProg.planned_completion_date : "";
-        const startDate = userModuleProg ? userModuleProg.start_date : "";
-        const compDate = userModuleProg ? userModuleProg.completion_date : "";
-        
-        const isExamMod = /1z0-|exam|certification|professional/i.test(courseModule.module_name);
-        const modIconName = isExamMod ? 'assignment_turned_in' : 'play_circle';
-        const safeCourse = courseModule.course_name.replace(/'/g, "\\'");
-        const safePath = (courseModule.path || "").replace(/'/g, "\\'");
-        const safeMod = courseModule.module_name.replace(/'/g, "\\'");
-        
-        tr.innerHTML = `
-            <td><strong>${courseModule.plan}</strong></td>
-            <td>${courseModule.course_name}</td>
-            <td><span class="text-secondary">${courseModule.path || "-"}</span></td>
-            <td>
-                <span class="material-icons-round font-sm ${isExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isExamMod ? 'Bài thi chứng chỉ (Ratio 1.0x)' : 'Bài học nội dung'}">${modIconName}</span>
-                <strong>${courseModule.module_name}</strong>
-                ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
-            </td>
-            <td><span class="font-mono">${formatDuration(courseModule.duration, courseModule.duration_minutes)}</span></td>
-            <td><span class="font-mono text-secondary">${plannedDate || t("not_set")}</span></td>
-            <td>
-                <div class="prog-bar-cell">
-                    <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${currentPercent}%"></div></div>
-                    <span class="font-mono font-bold">${currentPercent}%</span>
-                </div>
-            </td>
-            <td>${getStatusBadge(currentStatus)}</td>
-            <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, courseModule.duration_minutes)}</td>
-            <td class="actions-col">
-                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
-                    <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
-                </button>
-            </td>
-        `;
-        personalProgressTableBody.appendChild(tr);
+    // 4. Render Personal Progress Hierarchical View (Level 1: Plan -> Level 2: Course -> Level 3: Path (if any) -> Level 4: Modules Table)
+    const personalHierarchyContainer = document.getElementById("personalHierarchyContainer");
+    if (!personalHierarchyContainer) return;
+
+    // Preserve expanded card state
+    const expandedPersonalKeys = new Set();
+    document.querySelectorAll("#personalHierarchyContainer .expanded").forEach(c => {
+        const k = c.getAttribute("data-card-key");
+        if (k) expandedPersonalKeys.add(k);
     });
-    
+
+    personalHierarchyContainer.innerHTML = "";
+
     if (totalModules === 0) {
-        personalProgressTableBody.innerHTML = `
-            <tr>
-                <td colspan="10" class="text-center text-muted" style="padding: 2rem;">
-                    ${state.lang === 'en' ? 'No course enrolled yet. Please contact your Manager to register your learning path.' : 'Chưa được đăng ký học khóa học nào. Vui lòng liên hệ Quản lý (Manager) để đăng ký lộ trình học.'}
-                </td>
-            </tr>
+        personalHierarchyContainer.innerHTML = `
+            <div class="glass p-4 text-center text-muted">
+                <span class="material-icons-round font-lg display-block mb-2">assignment_late</span>
+                <span>${state.lang === 'en' ? 'No course enrolled yet. Please contact your Manager to register your learning path.' : 'Chưa được đăng ký học khóa học nào. Vui lòng liên hệ Quản lý (Manager) để đăng ký lộ trình học.'}</span>
+            </div>
         `;
+        return;
     }
+
+    // Group userEnrolledCourses by Plan -> Course -> Path (or direct modules)
+    const planMap = {};
+
+    userEnrolledCourses.forEach(m => {
+        const planName = m.plan || "Khóa học khác";
+        const courseName = m.course_name;
+        const pathName = m.path || "";
+
+        if (!planMap[planName]) {
+            planMap[planName] = {
+                planName: planName,
+                courses: {},
+                totalModules: 0,
+                completedModules: 0
+            };
+        }
+
+        if (!planMap[planName].courses[courseName]) {
+            planMap[planName].courses[courseName] = {
+                courseName: courseName,
+                paths: {},
+                directModules: [],
+                totalModules: 0,
+                completedModules: 0
+            };
+        }
+
+        const progRec = myProgress.find(p => 
+            p.course_name === m.course_name && 
+            (p.path || "") === (m.path || "") && 
+            p.module_name === m.module_name
+        );
+
+        const modRecord = {
+            module: m,
+            prog: progRec
+        };
+
+        if (pathName) {
+            if (!planMap[planName].courses[courseName].paths[pathName]) {
+                planMap[planName].courses[courseName].paths[pathName] = {
+                    pathName: pathName,
+                    modules: [],
+                    totalModules: 0,
+                    completedModules: 0
+                };
+            }
+            planMap[planName].courses[courseName].paths[pathName].modules.push(modRecord);
+            planMap[planName].courses[courseName].paths[pathName].totalModules += 1;
+            if (progRec && progRec.status === "Completed") {
+                planMap[planName].courses[courseName].paths[pathName].completedModules += 1;
+            }
+        } else {
+            planMap[planName].courses[courseName].directModules.push(modRecord);
+        }
+
+        planMap[planName].courses[courseName].totalModules += 1;
+        planMap[planName].totalModules += 1;
+
+        if (progRec && progRec.status === "Completed") {
+            planMap[planName].courses[courseName].completedModules += 1;
+            planMap[planName].completedModules += 1;
+        }
+    });
+
+    let planIdx = 0;
+    Object.values(planMap).forEach(planObj => {
+        planIdx++;
+        const planCardKey = `p-plan-${planIdx}`;
+        const planCardId = `pers-plan-card-${planIdx}`;
+        const planPercent = planObj.totalModules > 0 ? Math.round((planObj.completedModules / planObj.totalModules) * 100) : 0;
+        const courseKeys = Object.keys(planObj.courses);
+
+        const planCard = document.createElement("div");
+        planCard.className = "level1-card glass mb-3";
+        planCard.setAttribute("data-card-key", planCardKey);
+        if (expandedPersonalKeys.has(planCardKey)) planCard.classList.add("expanded");
+        planCard.id = planCardId;
+
+        // Helper to render module table rows
+        const renderModuleRows = (modList) => {
+            return modList.map(item => {
+                const m = item.module;
+                const p = item.prog;
+                const currentStatus = p ? p.status : "Not Started";
+                const currentPercent = p ? p.progress_percent : 0;
+                const speedStatus = p ? p.tracking_status : "On-track";
+                const plannedDate = p ? p.planned_completion_date : "";
+                const startDate = p ? p.start_date : "";
+                const compDate = p ? p.completion_date : "";
+
+                const isExamMod = /1z0-|exam|certification|professional/i.test(m.module_name);
+                const modIconName = isExamMod ? 'assignment_turned_in' : 'play_circle';
+                const safeCourse = m.course_name.replace(/'/g, "\\'");
+                const safePath = (m.path || "").replace(/'/g, "\\'");
+                const safeMod = m.module_name.replace(/'/g, "\\'");
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="material-icons-round font-sm ${isExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isExamMod ? 'Bài thi chứng chỉ (Ratio 1.0x)' : 'Bài học nội dung'}">${modIconName}</span>
+                            <strong>${m.module_name}</strong>
+                            ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
+                        </td>
+                        <td><span class="font-mono">${formatDuration(m.duration, m.duration_minutes)}</span></td>
+                        <td><span class="font-mono text-secondary">${plannedDate || t("not_set")}</span></td>
+                        <td>
+                            <div class="prog-bar-cell">
+                                <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${currentPercent}%"></div></div>
+                                <span class="font-mono font-bold">${currentPercent}%</span>
+                            </div>
+                        </td>
+                        <td>${getStatusBadge(currentStatus)}</td>
+                        <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes)}</td>
+                        <td class="actions-col">
+                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
+                                <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        // Level 1: Plan Header
+        planCard.innerHTML = `
+            <div class="level1-header" onclick="toggleCard('${planCardId}')">
+                <div class="level1-title-sec">
+                    <span class="material-icons-round level1-chevron">keyboard_arrow_right</span>
+                    <span class="material-icons-round font-lg text-primary mr-2" style="vertical-align:middle;">school</span>
+                    <div class="level1-title-text">
+                        <h3 class="plan-name">${planObj.planName}</h3>
+                        <span class="level1-subtitle"><strong class="text-success">${planObj.completedModules}/${planObj.totalModules} ${state.lang === 'en' ? 'completed' : 'hoàn thành'} (${planPercent}%)</strong></span>
+                    </div>
+                </div>
+                <div class="level1-stats flex-align-center">
+                    <span class="stat-badge count-badge">
+                        <span class="material-icons-round font-sm">book</span> ${courseKeys.length} ${state.lang === 'en' ? 'courses' : 'khóa học'}
+                    </span>
+                    <span class="stat-badge time-badge">
+                        <span class="material-icons-round font-sm">menu_book</span> ${planObj.totalModules} ${state.lang === 'en' ? 'modules' : 'module'}
+                    </span>
+                </div>
+            </div>
+            <div class="level2-body p-2" style="display:none; flex-direction:column; gap:0.5rem; background:rgba(0,0,0,0.15);">
+                <!-- Level 2 courses list -->
+            </div>
+        `;
+
+        planCard.insertAdjacentHTML("beforeend", `<style>#${planCardId}.expanded > .level2-body { display: flex !important; }</style>`);
+
+        const level2Body = planCard.querySelector(".level2-body");
+
+        let courseIdx = 0;
+        courseKeys.forEach(cKey => {
+            courseIdx++;
+            const courseObj = planObj.courses[cKey];
+            const courseCardKey = `p-course-${planIdx}-${courseIdx}`;
+            const courseCardId = `pers-course-card-${planIdx}-${courseIdx}`;
+            const coursePercent = courseObj.totalModules > 0 ? Math.round((courseObj.completedModules / courseObj.totalModules) * 100) : 0;
+            const pathKeys = Object.keys(courseObj.paths);
+
+            const courseCard = document.createElement("div");
+            courseCard.className = "level2-card";
+            courseCard.setAttribute("data-card-key", courseCardKey);
+            if (expandedPersonalKeys.has(courseCardKey)) courseCard.classList.add("expanded");
+            courseCard.id = courseCardId;
+
+            let courseBodyContent = "";
+            if (pathKeys.length > 0) {
+                let pathIdx = 0;
+                pathKeys.forEach(pName => {
+                    pathIdx++;
+                    const pathObj = courseObj.paths[pName];
+                    const pathCardKey = `p-path-${planIdx}-${courseIdx}-${pathIdx}`;
+                    const pathCardId = `pers-path-card-${planIdx}-${courseIdx}-${pathIdx}`;
+                    const pathPercent = pathObj.totalModules > 0 ? Math.round((pathObj.completedModules / pathObj.totalModules) * 100) : 0;
+
+                    courseBodyContent += `
+                        <div class="level3-card" data-card-key="${pathCardKey}" id="${pathCardId}">
+                            <div class="level3-header" onclick="toggleCard('${pathCardId}', event)">
+                                <div class="level2-left">
+                                    <button type="button" class="toggle-modules-btn font-mono" onclick="toggleCard('${pathCardId}', event)">
+                                        <span class="toggle-arrow">&gt;</span>
+                                    </button>
+                                    <div class="course-info">
+                                        <h4 class="course-title" style="font-size:0.85rem;"><span class="material-icons-round font-xs text-info mr-1" style="vertical-align:middle;">alt_route</span> ${pName}</h4>
+                                    </div>
+                                </div>
+                                <div class="level2-right flex-align-center">
+                                    <span class="font-xs text-secondary mr-2"><strong>${pathObj.completedModules}/${pathObj.totalModules}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'} (${pathPercent}%)</span>
+                                </div>
+                            </div>
+                            <div class="level4-modules-container">
+                                <table class="level3-module-table data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>${t("col_module")}</th>
+                                            <th>${t("col_duration")}</th>
+                                            <th>${t("col_target_date")}</th>
+                                            <th>${t("col_progress")}</th>
+                                            <th>${t("col_status")}</th>
+                                            <th>${t("col_tracking")}</th>
+                                            <th class="actions-col">${t("col_actions")}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${renderModuleRows(pathObj.modules)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                // Direct modules without path
+                courseBodyContent = `
+                    <div class="level4-modules-container" style="display:block;">
+                        <table class="level3-module-table data-table">
+                            <thead>
+                                <tr>
+                                    <th>${t("col_module")}</th>
+                                    <th>${t("col_duration")}</th>
+                                    <th>${t("col_target_date")}</th>
+                                    <th>${t("col_progress")}</th>
+                                    <th>${t("col_status")}</th>
+                                    <th>${t("col_tracking")}</th>
+                                    <th class="actions-col">${t("col_actions")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${renderModuleRows(courseObj.directModules)}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            courseCard.innerHTML = `
+                <div class="level2-header" onclick="toggleCard('${courseCardId}', event)">
+                    <div class="level2-left">
+                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleCard('${courseCardId}', event)">
+                            <span class="toggle-arrow">&gt;</span>
+                        </button>
+                        <div class="course-info">
+                            <h4 class="course-title"><span class="material-icons-round font-sm text-warning mr-1" style="vertical-align:middle;">import_contacts</span> ${courseObj.courseName}</h4>
+                        </div>
+                    </div>
+                    <div class="level2-right flex-align-center gap-2">
+                        <div class="course-stat-item">
+                            <span class="material-icons-round">task_alt</span>
+                            <span><strong>${courseObj.completedModules}/${courseObj.totalModules}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'} (${coursePercent}%)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="level3-body p-2" style="display:none; flex-direction:column; gap:0.5rem; background:rgba(0,0,0,0.15);">
+                    ${courseBodyContent}
+                </div>
+            `;
+
+            courseCard.insertAdjacentHTML("beforeend", `<style>#${courseCardId}.expanded > .level3-body { display: flex !important; }</style>`);
+
+            level2Body.appendChild(courseCard);
+        });
+
+        personalHierarchyContainer.appendChild(planCard);
+    });
 }
 
 // Helpers for badges
