@@ -625,6 +625,9 @@ function setupEventHandlers() {
     }
 
     document.getElementById("btnOpenAddEnrollment").onclick = () => {
+        document.getElementById("enrollmentModalTitle").textContent = "Đăng ký lộ trình / khóa học cho nhân viên";
+        const enrUser = document.getElementById("enrUsername");
+        if (enrUser) enrUser.disabled = false;
         enrollmentForm.reset();
         populateEnrollmentOptions();
         showModal(enrollmentModal);
@@ -1589,6 +1592,19 @@ function updateSummaryBox(totalMins, regularMins, examMins, moduleCount, ratioVa
         ? ` <span class="text-warning font-xs" title="Thời gian bài thi được giữ cố định (ratio 1.0x)">(Cố định exam 1.0x: ${formatHoursMinutes(examMins)})</span>` 
         : '';
 
+    const startDateVal = document.getElementById("enrStartDate").value;
+    const endDateVal = document.getElementById("enrEndDate").value;
+    let calendarDaysText = "";
+    if (startDateVal && endDateVal) {
+        const sDate = new Date(startDateVal);
+        const eDate = new Date(endDateVal);
+        const diffTime = eDate - sDate;
+        const diffCalendarDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+        const wwType = parseInt(document.getElementById("enrWorkweek").value) || 5;
+        const wwLabel = wwType === 7 ? "Tất cả các ngày" : wwType === 6 ? "T2 - T7" : "T2 - T6";
+        calendarDaysText = ` <span class="text-secondary font-xs">(${diffCalendarDays} ngày lịch - ${wwLabel})</span>`;
+    }
+
     summaryEl.innerHTML = `
         <div class="calc-info-box font-sm glass">
             <div class="calc-info-row">
@@ -1597,7 +1613,7 @@ function updateSummaryBox(totalMins, regularMins, examMins, moduleCount, ratioVa
             </div>
             <div class="calc-info-row mt-1">
                 <span><span class="material-icons-round font-xs">timer</span> Thời lượng thực tế: <strong class="text-success">${formatHoursMinutes(adjustedMins)} (${adjustedHours.toFixed(1)}h)</strong></span>
-                <span><span class="material-icons-round font-xs">event</span> Dự kiến cần: <strong>${requiredDays} ngày học</strong> (${dailyHoursVal}h/ngày)</span>
+                <span><span class="material-icons-round font-xs">event</span> Dự kiến cần: <strong>${requiredDays} ngày học thực tế</strong> (${dailyHoursVal}h/ngày)${calendarDaysText}</span>
             </div>
         </div>
     `;
@@ -1709,6 +1725,9 @@ function renderEnrollmentsTable() {
         const targetTypeLabel = (enr.target_type === "plan") ? "Plan" : "Course";
         const ratioText = enr.ratio ? `${enr.ratio}x` : "3.0x";
         
+        const safeUsername = enr.username.replace(/'/g, "\\'");
+        const safeTargetName = (enr.target_name || enr.course_name).replace(/'/g, "\\'");
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td><span class="font-mono">${enr.username}</span></td>
@@ -1720,8 +1739,11 @@ function renderEnrollmentsTable() {
             <td><span class="badge badge-status-inprogress">${workweekText}</span></td>
             <td><span class="font-mono font-weight-bold text-primary">${ratioText}</span></td>
             <td class="actions-col">
-                <button class="btn btn-danger btn-sm" onclick="deleteEnrollmentRecord('${enr.username.replace(/'/g, "\\'")}', '${(enr.target_name || enr.course_name).replace(/'/g, "\\'")}')">
-                    <span class="material-icons-round font-sm">delete</span> Hủy đăng ký
+                <button class="btn btn-secondary btn-sm mr-1" onclick="openEditEnrollment('${safeUsername}', '${safeTargetName}')" title="Sửa thông tin đăng ký">
+                    <span class="material-icons-round font-sm">edit</span> Sửa
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="deleteEnrollmentRecord('${safeUsername}', '${safeTargetName}')" title="Hủy đăng ký">
+                    <span class="material-icons-round font-sm">delete</span> Hủy
                 </button>
             </td>
         `;
@@ -1732,6 +1754,45 @@ function renderEnrollmentsTable() {
         enrollmentsTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Chưa có lượt đăng ký khóa học nào.</td></tr>`;
     }
 }
+
+window.openEditEnrollment = function(username, targetName) {
+    const enr = state.enrollments.find(e => e.username === username && (e.target_name === targetName || e.course_name === targetName));
+    if (!enr) return;
+
+    document.getElementById("enrollmentModalTitle").textContent = "Cập nhật thông tin đăng ký khóa học";
+    populateEnrollmentOptions();
+
+    const enrUser = document.getElementById("enrUsername");
+    if (enrUser) {
+        enrUser.value = enr.username;
+        enrUser.disabled = true;
+    }
+
+    const radios = document.getElementsByName("enrTargetType");
+    radios.forEach(r => {
+        if (r.value === enr.target_type) {
+            r.checked = true;
+            r.dispatchEvent(new Event("change"));
+        }
+    });
+
+    if (enr.target_type === "plan") {
+        const enrPlanSelect = document.getElementById("enrPlanSelect");
+        if (enrPlanSelect) enrPlanSelect.value = targetName;
+    } else {
+        const enrCourseSelect = document.getElementById("enrCourseSelect");
+        if (enrCourseSelect) enrCourseSelect.value = targetName;
+    }
+
+    if (enr.ratio) document.getElementById("enrRatio").value = enr.ratio;
+    if (enr.daily_hours) document.getElementById("enrDailyHours").value = enr.daily_hours;
+    if (enr.start_date) document.getElementById("enrStartDate").value = enr.start_date;
+    if (enr.planned_end_date) document.getElementById("enrEndDate").value = enr.planned_end_date;
+    if (enr.workweek_type) document.getElementById("enrWorkweek").value = enr.workweek_type;
+
+    recalculateEndDateFromRatio();
+    showModal(enrollmentModal);
+};
 
 function populateEnrollmentOptions() {
     const enrUser = document.getElementById("enrUsername");
@@ -1811,6 +1872,9 @@ async function deleteEnrollmentRecord(username, targetName) {
 
 async function submitEnrollmentForm(e) {
     e.preventDefault();
+    const enrUserEl = document.getElementById("enrUsername");
+    const usernameVal = enrUserEl.value;
+
     const radios = document.getElementsByName("enrTargetType");
     let targetType = "plan";
     for (const r of radios) {
@@ -1823,7 +1887,7 @@ async function submitEnrollmentForm(e) {
     const targetName = (targetType === "plan") ? document.getElementById("enrPlanSelect").value : document.getElementById("enrCourseSelect").value;
     
     const data = {
-        username: document.getElementById("enrUsername").value,
+        username: usernameVal,
         target_type: targetType,
         target_name: targetName,
         course_name: targetName,
@@ -1841,6 +1905,7 @@ async function submitEnrollmentForm(e) {
             body: JSON.stringify(data)
         });
         if (response.ok) {
+            enrUserEl.disabled = false;
             hideModal(enrollmentModal);
             await refreshData();
         } else {
