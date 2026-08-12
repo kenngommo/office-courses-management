@@ -1007,6 +1007,26 @@ function setupEventHandlers() {
         };
     }
 
+    // Global Event Delegation for Update Progress Buttons
+    document.addEventListener("click", function(e) {
+        const btn = e.target.closest(".btn-update-progress");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const username = decodeURIComponent(btn.getAttribute("data-username") || "");
+        const course = decodeURIComponent(btn.getAttribute("data-course") || "");
+        const path = decodeURIComponent(btn.getAttribute("data-path") || "");
+        const module = decodeURIComponent(btn.getAttribute("data-module") || "");
+        const status = btn.getAttribute("data-status") || "Not Started";
+        const progress = parseFloat(btn.getAttribute("data-progress") || "0");
+        const start = btn.getAttribute("data-start") || "";
+        const comp = btn.getAttribute("data-comp") || "";
+        const planned = btn.getAttribute("data-planned") || "";
+
+        openProgressUpdateModal(username, course, path, module, status, progress, start, comp, planned);
+    });
+
     document.getElementById("btnOpenAddEnrollment").onclick = () => {
         document.getElementById("enrollmentModalTitle").textContent = "Đăng ký lộ trình / khóa học cho nhân viên";
         const enrUser = document.getElementById("enrUsername");
@@ -1486,7 +1506,16 @@ function renderPersonalTab() {
                         <td>${getStatusBadge(currentStatus)}</td>
                         <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes)}</td>
                         <td class="actions-col">
-                            <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
+                            <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
+                                data-username="${encodeURIComponent(state.currentUser.username)}"
+                                data-course="${encodeURIComponent(m.course_name)}"
+                                data-path="${encodeURIComponent(m.path || '')}"
+                                data-module="${encodeURIComponent(m.module_name)}"
+                                data-status="${currentStatus}"
+                                data-progress="${currentPercent}"
+                                data-start="${startDate}"
+                                data-comp="${compDate}"
+                                data-planned="${plannedDate}">
                                 <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                             </button>
                         </td>
@@ -2095,7 +2124,16 @@ function renderTeamProgressTable() {
                                             <td>${getStatusBadge(p.status)}</td>
                                             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0)}</td>
                                             <td class="actions-col">
-                                                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
+                                                <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
+                                                    data-username="${encodeURIComponent(userData.username)}"
+                                                    data-course="${encodeURIComponent(p.course_name)}"
+                                                    data-path="${encodeURIComponent(p.path || '')}"
+                                                    data-module="${encodeURIComponent(p.module_name)}"
+                                                    data-status="${p.status}"
+                                                    data-progress="${p.progress_percent}"
+                                                    data-start="${safeStart}"
+                                                    data-comp="${safeComp}"
+                                                    data-planned="${safeTarget}">
                                                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                                                 </button>
                                             </td>
