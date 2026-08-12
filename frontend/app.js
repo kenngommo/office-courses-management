@@ -8,7 +8,7 @@ let state = {
     courses: [],
     progress: [],
     enrollments: [],
-    lang: localStorage.getItem("epm_lang") || "vi"
+    lang: localStorage.getItem("epm_lang") || "en"
 };
 
 // MULTILINGUAL (i18n) DICTIONARY
@@ -246,8 +246,8 @@ const i18n = {
 };
 
 function t(key) {
-    const lang = state.lang || "vi";
-    return (i18n[lang] && i18n[lang][key]) || (i18n["vi"] && i18n["vi"][key]) || key;
+    const lang = state.lang || "en";
+    return (i18n[lang] && i18n[lang][key]) || (i18n["en"] && i18n["en"][key]) || (i18n["vi"] && i18n["vi"][key]) || key;
 }
 
 function updateLanguageUI() {
