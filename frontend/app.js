@@ -1494,9 +1494,9 @@ function renderCourseMgmtTable() {
                     <div class="level2-right flex-align-center gap-2">
                         <button type="button" class="toggle-switch-btn ${allCourseModulesActive ? 'is-active' : 'is-inactive'}" 
                                 onclick="event.stopPropagation(); toggleCourseActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', ${!allCourseModulesActive})"
-                                title="Bấm để Bật/Tắt toàn bộ các module trong khóa học này">
+                                title="Bấm để ${allCourseModulesActive ? 'chuyển sang Inactive (Tạm ẩn)' : 'chuyển sang Active (Kích hoạt)'} toàn bộ khóa học này">
                             <span class="material-icons-round font-xs">${allCourseModulesActive ? 'check_circle' : 'do_not_disturb_on'}</span>
-                            <span>Active/Inactive</span>
+                            <span>${allCourseModulesActive ? 'Active' : 'Inactive'}</span>
                         </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
@@ -1559,9 +1559,9 @@ function renderCourseMgmtTable() {
                                         <td>
                                             <button type="button" class="toggle-switch-btn ${isActive ? 'is-active' : 'is-inactive'}" 
                                                     onclick="event.stopPropagation(); toggleModuleActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', '${safeModName}', ${!isActive})"
-                                                    title="Bấm để ${isActive ? 'Tạm ẩn (Unactive) module này khỏi lộ trình' : 'Kích hoạt (Active) module này'}">
+                                                    title="Bấm để ${isActive ? 'chuyển sang Inactive (Tạm ẩn)' : 'chuyển sang Active (Kích hoạt)'} module này">
                                                 <span class="material-icons-round font-xs">${isActive ? 'check_circle' : 'do_not_disturb_on'}</span>
-                                                <span>${isActive ? 'Active' : 'Tạm ẩn'}</span>
+                                                <span>${isActive ? 'Active' : 'Inactive'}</span>
                                             </button>
                                         </td>
                                     </tr>
