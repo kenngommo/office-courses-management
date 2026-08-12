@@ -25,13 +25,47 @@ const i18n = {
 
         tab_my_progress: "Tiến độ cá nhân",
         tab_overall_progress: "Quản lý nhóm",
+        tab_course_mgmt: "Quản lý khóa học",
+        tab_emp_mgmt: "Quản lý nhân viên",
+        tab_enr_mgmt: "Đăng ký khóa học",
         
         stat_total_modules: "Tổng số Module",
+        stat_completed: "Đã hoàn thành",
+        stat_in_progress: "Đang tiến hành",
+        stat_delayed: "Trễ tiến độ",
         stat_avg_speed: "Tốc độ trung bình",
         stat_ontrack: "Đúng tiến độ",
         stat_ahead: "Học nhanh",
         stat_slow: "Chậm tiến độ",
         stat_critical: "Quá chậm",
+
+        title_personal_progress: "Bảng tiến độ cá nhân:",
+        lbl_filter_by_course: "Xem theo Khóa học:",
+        title_my_learning_path: "Danh sách lộ trình học của tôi",
+        
+        chart_weighted_progress: "Tiến độ khóa học (Trọng số giờ)",
+        chart_module_status: "Trạng thái học tập của Module",
+        legend_fast: "Nhanh:",
+        legend_ontrack: "Đúng hạn:",
+        legend_slow: "Chậm:",
+        legend_tooslow: "Quá chậm:",
+
+        title_team_progress: "Tổng hợp tiến độ nhân viên",
+        lbl_legend_title: "Ghi chú trạng thái đánh giá:",
+        lbl_filter_employee: "Lọc nhân viên:",
+        lbl_filter_plan: "Lọc Plan:",
+        lbl_filter_course: "Lọc Khóa học:",
+        lbl_filter_status: "Trạng thái:",
+        lbl_filter_speed: "Tốc độ:",
+
+        title_emp_list: "Danh sách nhân sự hệ thống",
+        col_password: "Mật khẩu",
+        col_english_name: "Tên Tiếng Anh",
+
+        title_course_catalog: "Danh sách chương trình học",
+        sub_course_catalog: "Quản lý khoá học theo phân cấp (Level 1: Phân loại / Plan - Level 2: Khóa học & Module)",
+
+        title_enrollment_mgmt: "Đăng ký & Lập lịch khóa học cho nhân viên",
         
         filter_all_emp: "-- Tất cả nhân viên --",
         filter_all_plans: "-- Tất cả Plan --",
@@ -40,26 +74,30 @@ const i18n = {
         filter_all_tracking: "-- Tất cả tiến độ --",
 
         btn_create_course: "+ Tạo khóa học mới",
-        btn_expand_all: "Xổ ra tất cả",
+        btn_expand_all: "Mở tất cả",
         btn_collapse_all: "Thu gọn tất cả",
         btn_add_emp: "+ Thêm nhân viên mới",
         btn_add_enr: "+ Đăng ký Lộ trình mới",
 
         col_employee: "Nhân viên",
         col_course_plan: "Tên Khóa học / Plan",
+        col_plan: "Phân loại (Plan)",
+        col_course: "Khóa học (Course)",
         col_path: "Lộ trình (Path)",
-        col_module: "Module bài học",
+        col_module: "Tên Module",
+        col_duration: "Thời lượng",
+        col_target_date: "Hạn hoàn thành (Target)",
         col_status: "Trạng thái",
         col_progress: "Tiến độ (%)",
         col_start_date: "Ngày bắt đầu",
         col_actual_end: "Hoàn thành thực tế",
         col_planned_end: "Hoàn thành dự kiến",
-        col_tracking: "Tốc độ tiến độ",
+        col_tracking: "Đánh giá",
 
-        col_username: "Username",
-        col_fullname: "Họ và tên",
+        col_username: "Tên tài khoản (Username)",
+        col_fullname: "Họ và tên (Tiếng Việt)",
         col_email: "Email",
-        col_role: "Vai trò",
+        col_role: "Quyền hạn (Role)",
         col_pwd_status: "Trạng thái Mật khẩu",
         col_actions: "Thao tác",
 
@@ -68,7 +106,7 @@ const i18n = {
         col_ratio: "Hệ số Ratio",
         col_daily_hours: "Giờ học / ngày",
         col_study_days: "Số ngày học",
-        col_workweek: "Chế độ làm việc",
+        col_workweek: "Lịch làm việc",
 
         status_completed: "Completed",
         status_in_progress: "In Progress",
@@ -84,8 +122,11 @@ const i18n = {
         btn_active: "Active",
         btn_inactive: "Inactive",
 
+        login_subtitle: "Đăng nhập để xem lộ trình học và tiến độ đào tạo",
         lbl_remember_me: "Lưu thông tin đăng nhập",
-        lbl_forgot_password: "Quên mật khẩu?"
+        lbl_forgot_password: "Quên mật khẩu?",
+        btn_update: "Cập nhật",
+        not_set: "Chưa thiết lập"
     },
     en: {
         brand_name: "EPM Courses Hub",
@@ -99,14 +140,48 @@ const i18n = {
 
         tab_my_progress: "My Progress",
         tab_overall_progress: "Team Dashboard",
+        tab_course_mgmt: "Course Management",
+        tab_emp_mgmt: "Employee Management",
+        tab_enr_mgmt: "Enrollment & Schedule",
 
         stat_total_modules: "Total Modules",
+        stat_completed: "Completed",
+        stat_in_progress: "In Progress",
+        stat_delayed: "Overdue",
         stat_avg_speed: "Average Speed",
         stat_ontrack: "On Track",
         stat_ahead: "Ahead of Schedule",
         stat_slow: "Slow",
         stat_critical: "Critical Delay",
-        
+
+        title_personal_progress: "Personal Learning Dashboard:",
+        lbl_filter_by_course: "Filter by Course:",
+        title_my_learning_path: "My Learning Paths & Modules",
+
+        chart_weighted_progress: "Course Progress (Weighted Hours)",
+        chart_module_status: "Module Study Status Breakdown",
+        legend_fast: "Ahead:",
+        legend_ontrack: "On Track:",
+        legend_slow: "Slow:",
+        legend_tooslow: "Critical Delay:",
+
+        title_team_progress: "Overall Team Learning Progress",
+        lbl_legend_title: "Status Assessment Legend:",
+        lbl_filter_employee: "Filter Employee:",
+        lbl_filter_plan: "Filter Plan:",
+        lbl_filter_course: "Filter Course:",
+        lbl_filter_status: "Status:",
+        lbl_filter_speed: "Speed:",
+
+        title_emp_list: "Employee System Catalog",
+        col_password: "Password",
+        col_english_name: "English Name",
+
+        title_course_catalog: "Curriculum Course Catalog",
+        sub_course_catalog: "Manage courses by hierarchy (Level 1: Plan/Category - Level 2: Course & Module)",
+
+        title_enrollment_mgmt: "Employee Enrollment & Scheduling",
+
         filter_all_emp: "-- All Employees --",
         filter_all_plans: "-- All Plans --",
         filter_all_courses: "-- All Courses --",
@@ -121,8 +196,12 @@ const i18n = {
 
         col_employee: "Employee",
         col_course_plan: "Course / Plan Name",
+        col_plan: "Category (Plan)",
+        col_course: "Course",
         col_path: "Path",
         col_module: "Module Name",
+        col_duration: "Duration",
+        col_target_date: "Target Deadline",
         col_status: "Status",
         col_progress: "Progress (%)",
         col_start_date: "Start Date",
@@ -131,7 +210,7 @@ const i18n = {
         col_tracking: "Tracking Speed",
 
         col_username: "Username",
-        col_fullname: "Full Name",
+        col_fullname: "Full Name (Vietnamese)",
         col_email: "Email",
         col_role: "Role",
         col_pwd_status: "Password Status",
@@ -158,8 +237,11 @@ const i18n = {
         btn_active: "Active",
         btn_inactive: "Inactive",
 
+        login_subtitle: "Sign in to access course paths and learning progress",
         lbl_remember_me: "Remember Me",
-        lbl_forgot_password: "Forgot Password?"
+        lbl_forgot_password: "Forgot Password?",
+        btn_update: "Update",
+        not_set: "Not set"
     }
 };
 
