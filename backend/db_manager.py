@@ -278,6 +278,61 @@ def clone_plan_campaign(source_plan: str, new_plan: str):
         
     return True
 
+def reorder_courses_in_plan(plan: str, course_order: List[str]):
+    """Reorder course row blocks in sheet.xlsx for a given plan according to course_order list."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách khóa học EPM V5"]
+    
+    all_other_rows = []
+    plan_rows = []
+    
+    for r in range(2, ws.max_row + 1):
+        p_val = ws.cell(row=r, column=1).value
+        row_values = [ws.cell(row=r, column=c).value for c in range(1, 9)]
+        if p_val == plan:
+            plan_rows.append(row_values)
+        else:
+            all_other_rows.append(row_values)
+            
+    if not plan_rows:
+        wb.close()
+        return False
+
+    # Group plan_rows by course_name
+    grouped = {}
+    for row in plan_rows:
+        c_name = row[1]  # Col B: Course Name
+        if c_name not in grouped:
+            grouped[c_name] = []
+        grouped[c_name].append(row)
+        
+    # Reassemble plan rows according to course_order
+    reordered_plan_rows = []
+    for c_name in course_order:
+        if c_name in grouped:
+            reordered_plan_rows.extend(grouped.pop(c_name))
+            
+    # Append any remaining courses in plan not explicitly listed
+    for remaining_rows in grouped.values():
+        reordered_plan_rows.extend(remaining_rows)
+        
+    # Combine non-plan rows and reordered plan rows
+    final_rows = all_other_rows + reordered_plan_rows
+    
+    # Clear existing worksheet rows from row 2
+    ws.delete_rows(2, ws.max_row)
+    
+    # Write back final_rows
+    for row_idx, rdata in enumerate(final_rows, start=2):
+        for col_idx, val in enumerate(rdata, start=1):
+            ws.cell(row=row_idx, column=col_idx).value = val
+            
+    recalculate_formulas(ws)
+    wb.save(EXCEL_FILE)
+    wb.close()
+    return True
+
 import hashlib
 import hmac
 

@@ -1294,6 +1294,46 @@ window.toggleCourseActiveStatus = async function(plan, courseName, path, newStat
     }
 };
 
+window.moveCourseInPlan = async function(planName, courseName, direction) {
+    const planCourses = [];
+    state.courses.forEach(c => {
+        if (c.plan === planName && !planCourses.includes(c.course_name)) {
+            planCourses.push(c.course_name);
+        }
+    });
+
+    const idx = planCourses.indexOf(courseName);
+    if (idx === -1) return;
+
+    const newIndex = direction === "up" ? idx - 1 : idx + 1;
+    if (newIndex < 0 || newIndex >= planCourses.length) return;
+
+    const temp = planCourses[idx];
+    planCourses[idx] = planCourses[newIndex];
+    planCourses[newIndex] = temp;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/courses/reorder`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                plan: planName,
+                course_order: planCourses
+            })
+        });
+
+        if (response.ok) {
+            await refreshData();
+        } else {
+            const err = await response.json();
+            alert(`Lỗi: ${err.detail}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối tới máy chủ.");
+    }
+};
+
 // COURSE CATALOG HIERARCHICAL VIEW (LEVEL 1: PLANS, LEVEL 2: COURSES & MODULES)
 function renderCourseMgmtTable() {
     if (!courseHierarchyContainer) return;
@@ -1412,7 +1452,7 @@ function renderCourseMgmtTable() {
         const level2Body = planCard.querySelector(".level2-body");
 
         let courseIdx = 0;
-        courseKeys.forEach(cKey => {
+        courseKeys.forEach((cKey, cArrIdx) => {
             courseIdx++;
             const courseObj = plan.courses[cKey];
             const courseDurationFormatted = formatHoursMinutes(courseObj.activeMinutes, "short");
@@ -1429,6 +1469,8 @@ function renderCourseMgmtTable() {
             const safePath = courseObj.path.replace(/'/g, "\\'");
             
             const allCourseModulesActive = courseObj.activeModules === courseObj.modules.length;
+            const isFirst = cArrIdx === 0;
+            const isLast = cArrIdx === courseKeys.length - 1;
 
             const examCount = courseObj.modules.filter(m => /1z0-|exam|certification|professional/i.test(m.module_name)).length;
             const regCount = courseObj.modules.length - examCount;
@@ -1463,6 +1505,20 @@ function renderCourseMgmtTable() {
                         <div class="course-stat-item">
                             <span class="material-icons-round">schedule</span>
                             <span class="font-mono font-weight-bold text-success">${courseDurationFormatted}</span>
+                        </div>
+                        <div class="btn-group gap-1">
+                            <button type="button" class="btn btn-secondary btn-icon-only btn-sm ${isFirst ? 'disabled' : ''}" 
+                                    ${isFirst ? 'disabled' : ''} 
+                                    onclick="event.stopPropagation(); moveCourseInPlan('${safePlan}', '${safeCourseName}', 'up')" 
+                                    title="Chuyển khóa học này lên trên">
+                                <span class="material-icons-round font-sm">arrow_upward</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-icon-only btn-sm ${isLast ? 'disabled' : ''}" 
+                                    ${isLast ? 'disabled' : ''} 
+                                    onclick="event.stopPropagation(); moveCourseInPlan('${safePlan}', '${safeCourseName}', 'down')" 
+                                    title="Chuyển khóa học này xuống dưới">
+                                <span class="material-icons-round font-sm">arrow_downward</span>
+                            </button>
                         </div>
                         <button class="btn btn-danger btn-icon-only btn-sm" onclick="event.stopPropagation(); deleteCourseRecord('${safeCourseName}')" title="Xóa khóa học">
                             <span class="material-icons-round">delete</span>

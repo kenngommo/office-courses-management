@@ -25,7 +25,8 @@ from backend.db_manager import (
     update_user_avatar,
     toggle_module_status,
     clone_course_campaign,
-    clone_plan_campaign
+    clone_plan_campaign,
+    reorder_courses_in_plan
 )
 
 # Initialize sheet schema if not already present
@@ -346,6 +347,23 @@ def api_clone_plan(req: ClonePlanRequest):
         if not success:
             raise HTTPException(status_code=400, detail="Không tìm thấy module/khóa học Active nào trong Plan gốc để nhân bản.")
         return {"status": "success", "message": f"Tạo Plan đào tạo mới '{req.new_plan}' thành công!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ReorderCoursesRequest(BaseModel):
+    plan: str
+    course_order: List[str]
+
+@app.post("/api/courses/reorder")
+def api_reorder_courses(req: ReorderCoursesRequest):
+    try:
+        success = reorder_courses_in_plan(
+            plan=req.plan,
+            course_order=req.course_order
+        )
+        if not success:
+            raise HTTPException(status_code=400, detail="Không tìm thấy các khóa học trong Plan để sắp xếp.")
+        return {"status": "success", "message": "Cập nhật thứ tự khóa học thành công!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
