@@ -648,32 +648,26 @@
         </div>
     </div>
 
-    <!-- MODAL: SAVE AS CAMPAIGN / PERIOD TEMPLATE -->
+    <!-- MODAL: SAVE AS PLAN / CAMPAIGN TEMPLATE -->
     <div class="modal-backdrop" id="campaignModal">
         <div class="modal-content glass narrow-modal">
             <div class="modal-header">
-                <h3>Lưu thành Đợt đào tạo mới (Campaign)</h3>
+                <h3>Lưu thành Plan đào tạo mới</h3>
                 <span class="material-icons-round close-btn" id="closeCampaignModal">close</span>
             </div>
             <div class="modal-body">
                 <form id="campaignForm">
-                    <input type="hidden" id="cmpSourceCourseName">
-                    <input type="hidden" id="cmpSourcePath">
+                    <input type="hidden" id="cmpSourcePlan">
                     
                     <div class="form-group mb-3">
-                        <label for="cmpPlan">Phân loại khóa học (Plan)</label>
-                        <input type="text" id="cmpPlan" class="form-control" required placeholder="E.g. Plan: Oracle EPM">
+                        <label for="cmpSourcePlanDisplay">Plan nguồn gốc</label>
+                        <input type="text" id="cmpSourcePlanDisplay" class="form-control" readonly disabled>
                     </div>
                     
                     <div class="form-group mb-3">
-                        <label for="cmpNewCourseName">Tên Khóa học / Đợt đào tạo mới</label>
-                        <input type="text" id="cmpNewCourseName" class="form-control" required placeholder="E.g. Become a Certified FCC Implementer - FastTrack Q3">
-                        <small class="text-muted font-xs display-block mt-1">Nên đặt tên kèm theo tên đợt hoặc giai đoạn (vd: FastTrack Q3, Campaign 2026)</small>
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label for="cmpNewPath">Lộ trình con (Path - không bắt buộc)</label>
-                        <input type="text" id="cmpNewPath" class="form-control" placeholder="E.g. Basic Path / FastTrack Path">
+                        <label for="cmpNewPlan">Tên Plan đào tạo mới (New Plan)</label>
+                        <input type="text" id="cmpNewPlan" class="form-control" required placeholder="Ví dụ: Oracle EPM - Q3 2026 / FastTrack Campaign">
+                        <small class="text-muted font-xs display-block mt-1">Gợi ý: Đặt tên kèm theo giai đoạn/đợt học (vd: Oracle EPM - Q3 2026)</small>
                     </div>
 
                     <div class="calc-info-box font-sm glass mb-3" id="cmpSummaryBox">
@@ -683,7 +677,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" id="btnCancelCampaignModal">Hủy</button>
                         <button type="submit" class="btn btn-primary">
-                            <span class="material-icons-round font-sm">content_copy</span> Tạo Đợt đào tạo mới
+                            <span class="material-icons-round font-sm">content_copy</span> Tạo Plan mới
                         </button>
                     </div>
                 </form>

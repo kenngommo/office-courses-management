@@ -247,6 +247,37 @@ def clone_course_campaign(source_course_name: str, new_course_name: str, new_pla
     add_course_modules(target_plan, new_course_name, target_path, modules_to_add)
     return True
 
+def clone_plan_campaign(source_plan: str, new_plan: str):
+    """Clone all active courses and modules of a source Plan into a new independent Plan."""
+    init_db()
+    all_courses = get_courses()
+    
+    matching = [
+        c for c in all_courses 
+        if c["plan"] == source_plan 
+        and c.get("queue", True)
+    ]
+    
+    if not matching:
+        return False
+        
+    course_groups = {}
+    for m in matching:
+        key = (m["course_name"], m["path"])
+        if key not in course_groups:
+            course_groups[key] = []
+        course_groups[key].append({
+            "module_name": m["module_name"],
+            "duration": m["duration"],
+            "duration_minutes": m["duration_minutes"],
+            "queue": True
+        })
+        
+    for (course_name, path), modules in course_groups.items():
+        add_course_modules(new_plan, course_name, path, modules)
+        
+    return True
+
 import hashlib
 import hmac
 

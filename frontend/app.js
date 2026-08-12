@@ -1297,6 +1297,19 @@ window.toggleCourseActiveStatus = async function(plan, courseName, path, newStat
 // COURSE CATALOG HIERARCHICAL VIEW (LEVEL 1: PLANS, LEVEL 2: COURSES & MODULES)
 function renderCourseMgmtTable() {
     if (!courseHierarchyContainer) return;
+
+    // Save currently expanded plans and courses to restore after render
+    const expandedPlanNames = new Set(
+        Array.from(document.querySelectorAll(".level1-card.expanded"))
+            .map(el => el.querySelector(".plan-name")?.textContent?.trim())
+            .filter(Boolean)
+    );
+    const expandedCourseKeys = new Set(
+        Array.from(document.querySelectorAll(".level2-card.expanded"))
+            .map(el => el.querySelector(".course-title")?.textContent?.trim())
+            .filter(Boolean)
+    );
+
     courseHierarchyContainer.innerHTML = "";
     
     if (!state.courses || state.courses.length === 0) {
@@ -1357,9 +1370,13 @@ function renderCourseMgmtTable() {
         const courseCount = courseKeys.length;
         const planDurationFormatted = formatHoursMinutes(plan.activeMinutes);
         const planCardId = `plan-card-${planIdx}`;
+        const safePlan = plan.planName.replace(/'/g, "\\'");
         
         const planCard = document.createElement("div");
         planCard.className = "level1-card glass";
+        if (expandedPlanNames.has(plan.planName)) {
+            planCard.classList.add("expanded");
+        }
         planCard.id = planCardId;
 
         // Level 1 Header
@@ -1373,13 +1390,18 @@ function renderCourseMgmtTable() {
                         <span class="level1-subtitle">Level 1: Phân loại khoá học (Plan) • <strong class="text-success">${plan.activeModules}/${plan.totalModules} modules active</strong></span>
                     </div>
                 </div>
-                <div class="level1-stats">
+                <div class="level1-stats flex-align-center">
                     <span class="stat-badge count-badge">
                         <span class="material-icons-round font-sm">menu_book</span> ${courseCount} khóa học
                     </span>
                     <span class="stat-badge time-badge">
                         <span class="material-icons-round font-sm">schedule</span> ${planDurationFormatted} (Active)
                     </span>
+                    <button type="button" class="btn btn-secondary btn-sm ml-2" 
+                            onclick="event.stopPropagation(); openSaveAsPlanModal('${safePlan}')" 
+                            title="Lưu tất cả các khóa & module đang Active của Plan này thành 1 Plan đào tạo mới">
+                        <span class="material-icons-round font-sm">content_copy</span> Lưu thành Plan mới
+                    </button>
                 </div>
             </div>
             <div class="level2-body">
@@ -1398,9 +1420,11 @@ function renderCourseMgmtTable() {
             
             const courseCard = document.createElement("div");
             courseCard.className = "level2-card";
+            if (expandedCourseKeys.has(courseObj.course_name)) {
+                courseCard.classList.add("expanded");
+            }
             courseCard.id = courseCardId;
             
-            const safePlan = plan.planName.replace(/'/g, "\\'");
             const safeCourseName = courseObj.course_name.replace(/'/g, "\\'");
             const safePath = courseObj.path.replace(/'/g, "\\'");
             
@@ -1413,7 +1437,7 @@ function renderCourseMgmtTable() {
                 modulesStatText = `<strong>${courseObj.activeModules}/${courseObj.modules.length}</strong> modules (${examCount} exams)`;
             }
             
-            // Level 2 Course HTML with ">" module toggle button
+            // Level 2 Course HTML with ">" module toggle button & Active/Inactive Toggle button
             courseCard.innerHTML = `
                 <div class="level2-header" onclick="toggleLevel2Modules('${courseCardId}', event)">
                     <div class="level2-left">
@@ -1428,14 +1452,9 @@ function renderCourseMgmtTable() {
                     <div class="level2-right flex-align-center gap-2">
                         <button type="button" class="toggle-switch-btn ${allCourseModulesActive ? 'is-active' : 'is-inactive'}" 
                                 onclick="event.stopPropagation(); toggleCourseActiveStatus('${safePlan}', '${safeCourseName}', '${safePath}', ${!allCourseModulesActive})"
-                                title="Bấm để ${allCourseModulesActive ? 'Tạm ẩn tất cả modules của khóa này' : 'Kích hoạt tất cả modules của khóa này'}">
+                                title="Bấm để Bật/Tắt toàn bộ các module trong khóa học này">
                             <span class="material-icons-round font-xs">${allCourseModulesActive ? 'check_circle' : 'do_not_disturb_on'}</span>
-                            <span>${allCourseModulesActive ? 'Tất cả Active' : 'Bật/Tắt Khóa'}</span>
-                        </button>
-                        <button type="button" class="btn btn-secondary btn-sm" 
-                                onclick="event.stopPropagation(); openSaveAsCampaignModal('${safePlan}', '${safeCourseName}', '${safePath}')"
-                                title="Lưu các module Active hiện tại thành 1 Khóa học / Đợt đào tạo mới">
-                            <span class="material-icons-round font-sm">content_copy</span> Lưu thành Đợt mới
+                            <span>Active/Inactive</span>
                         </button>
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
@@ -1516,33 +1535,31 @@ async function deleteCourseRecord(courseName) {
     }
 }
 
-window.openSaveAsCampaignModal = function(planName, courseName, pathName) {
-    const matchingActive = state.courses.filter(c => 
-        c.course_name === courseName 
-        && (!pathName || c.path === pathName) 
-        && c.queue !== false
-    );
-    
+window.openSaveAsPlanModal = function(planName) {
+    const matchingActive = state.courses.filter(c => c.plan === planName && c.queue !== false);
     if (matchingActive.length === 0) {
-        alert("Khóa học này hiện không có module Active nào để lưu thành Đợt mới.");
+        alert("Plan này hiện không có module/khóa học Active nào để lưu thành Plan mới.");
         return;
     }
 
-    document.getElementById("cmpSourceCourseName").value = courseName;
-    document.getElementById("cmpSourcePath").value = pathName || "";
-    document.getElementById("cmpPlan").value = planName;
-    document.getElementById("cmpNewCourseName").value = `${courseName} - FastTrack Q3`;
-    document.getElementById("cmpNewPath").value = pathName || "";
-
+    const activeCourses = [...new Set(matchingActive.map(c => c.course_name))];
     const totalMins = matchingActive.reduce((sum, c) => sum + (c.duration_minutes || 0), 0);
+
+    document.getElementById("cmpSourcePlan").value = planName;
+    document.getElementById("cmpSourcePlanDisplay").value = planName;
+    document.getElementById("cmpNewPlan").value = `${planName} - Q3 2026`;
+
     const cmpSummaryBox = document.getElementById("cmpSummaryBox");
     if (cmpSummaryBox) {
         cmpSummaryBox.innerHTML = `
             <div class="calc-info-row">
-                <span><span class="material-icons-round font-xs">school</span> Khóa gốc: <strong>${courseName}</strong></span>
+                <span><span class="material-icons-round font-xs">school</span> Plan nguồn gốc: <strong>${planName}</strong></span>
             </div>
             <div class="calc-info-row mt-1">
-                <span><span class="material-icons-round font-xs">task_alt</span> Module Active nhân bản: <strong class="text-success">${matchingActive.length} modules</strong> (${formatHoursMinutes(totalMins)})</span>
+                <span><span class="material-icons-round font-xs">library_books</span> Khóa học Active: <strong class="text-primary">${activeCourses.length} khóa</strong> (${activeCourses.join(", ")})</span>
+            </div>
+            <div class="calc-info-row mt-1">
+                <span><span class="material-icons-round font-xs">task_alt</span> Tổng module nhân bản: <strong class="text-success">${matchingActive.length} modules</strong> (${formatHoursMinutes(totalMins)})</span>
             </div>
         `;
     }
@@ -1553,15 +1570,12 @@ window.openSaveAsCampaignModal = function(planName, courseName, pathName) {
 async function submitCampaignForm(e) {
     e.preventDefault();
     const data = {
-        source_course_name: document.getElementById("cmpSourceCourseName").value,
-        source_path: document.getElementById("cmpSourcePath").value || null,
-        new_plan: document.getElementById("cmpPlan").value,
-        new_course_name: document.getElementById("cmpNewCourseName").value,
-        new_path: document.getElementById("cmpNewPath").value || null
+        source_plan: document.getElementById("cmpSourcePlan").value,
+        new_plan: document.getElementById("cmpNewPlan").value.trim()
     };
 
     try {
-        const response = await fetch(`${API_BASE}/api/courses/clone-campaign`, {
+        const response = await fetch(`${API_BASE}/api/courses/clone-plan`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
@@ -1569,7 +1583,7 @@ async function submitCampaignForm(e) {
 
         const resData = await response.json();
         if (response.ok) {
-            alert(resData.message || "Tạo Đợt đào tạo mới thành công!");
+            alert(resData.message || "Tạo Plan đào tạo mới thành công!");
             hideModal(campaignModal);
             await refreshData();
         } else {
