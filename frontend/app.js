@@ -1196,23 +1196,14 @@ function hideModal(modalEl) {
 
 // Helper: Get all courses matching user's enrollments or progress history
 function getUserEnrolledCourses(username) {
-    if (!username) return [];
+    if (!username) return state.courses;
     
     // Find all enrollment records for this username
     const userEnrs = state.enrollments.filter(e => e.username === username);
     
-    // Find all progress records for this username
-    const userProgress = state.progress.filter(p => p.username === username);
-    const userProgCourseKeys = new Set(userProgress.map(p => `${p.course_name}:::${p.path || ''}`));
-
-    // If user has direct enrollments or progress, filter matching courses
-    if (userEnrs.length > 0 || userProgress.length > 0) {
+    // If user has specific enrollment records, filter courses matching those enrollments
+    if (userEnrs.length > 0) {
         return state.courses.filter(c => {
-            // Match progress history
-            const cKey = `${c.course_name}:::${c.path || ''}`;
-            if (userProgCourseKeys.has(cKey)) return true;
-
-            // Match enrollments by plan or course_name
             return userEnrs.some(e => {
                 const targetName = e.target_name || e.course_name || "";
                 if (e.target_type === "plan") {
@@ -1226,13 +1217,8 @@ function getUserEnrolledCourses(username) {
         });
     }
 
-    // Fallback: If user has NO enrollments and NO progress, but is being viewed by Manager/Super User
-    const activeUser = state.loggedInUser || state.currentUser;
-    if (activeUser && (activeUser.role === "Manager" || activeUser.role === "Power User" || activeUser.role === "Super User")) {
-        return state.courses;
-    }
-
-    return [];
+    // Default: If no explicit enrollment restrictions exist for this user, give access to all courses in curriculum
+    return state.courses;
 }
 
 // Render Dashboard Data based on selected user
@@ -1320,14 +1306,14 @@ function renderPersonalTab() {
     courseProgressRingText.textContent = `${Math.round(overallProgress)}%`;
     
     // 3. Compute Speed Status Counts & Render Visual Stack Bar
-    const statusCounts = { Fast: 0, "On-track": 0, Slow: 0, "Too slow": 0 };
+    const statusCounts = { "Fast": 0, "On-track": 0, "Slow": 0, "Too slow": 0 };
     myProgress.forEach(p => {
-        if (p.tracking_status in statusCounts) {
+        if (p.tracking_status && statusCounts.hasOwnProperty(p.tracking_status)) {
             statusCounts[p.tracking_status]++;
         }
     });
     
-    const totalStatusCount = statusCounts.Fast + statusCounts["On-track"] + statusCounts.Slow + statusCounts["Too slow"];
+    const totalStatusCount = myProgress.length;
     
     if (totalStatusCount > 0) {
         segFast.style.width = `${(statusCounts.Fast / totalStatusCount) * 100}%`;
@@ -1367,6 +1353,9 @@ function renderPersonalTab() {
         
         const isExamMod = /1z0-|exam|certification|professional/i.test(courseModule.module_name);
         const modIconName = isExamMod ? 'assignment_turned_in' : 'play_circle';
+        const safeCourse = courseModule.course_name.replace(/'/g, "\\'");
+        const safePath = (courseModule.path || "").replace(/'/g, "\\'");
+        const safeMod = courseModule.module_name.replace(/'/g, "\\'");
         
         tr.innerHTML = `
             <td><strong>${courseModule.plan}</strong></td>
@@ -1388,7 +1377,7 @@ function renderPersonalTab() {
             <td>${getStatusBadge(currentStatus)}</td>
             <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate)}</td>
             <td class="actions-col">
-                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${safeStart}', '${safeComp}', '${plannedDate}')">
+                <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                 </button>
             </td>
