@@ -1375,7 +1375,7 @@ function renderPersonalTab() {
                 </div>
             </td>
             <td>${getStatusBadge(currentStatus)}</td>
-            <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate)}</td>
+            <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, courseModule.duration_minutes)}</td>
             <td class="actions-col">
                 <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${state.currentUser.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
@@ -1427,7 +1427,7 @@ function getStatusBadge(status) {
     return `<span class="badge ${cls}">${txt}</span>`;
 }
 
-function getSpeedBadge(speed, status, plannedDate) {
+function getSpeedBadge(speed, status, plannedDate, startDate, durationMins) {
     if (!plannedDate) return `<span class="text-muted">-</span>`;
     
     let evaluatedSpeed = speed || "On-track";
@@ -1436,11 +1436,20 @@ function getSpeedBadge(speed, status, plannedDate) {
         today.setHours(0, 0, 0, 0);
         const pDate = new Date(plannedDate);
         pDate.setHours(0, 0, 0, 0);
+        const mins = parseInt(durationMins) || 0;
+        const isShortModule = (mins > 0 && mins <= 180);
 
         if (status === "Completed") {
             // Keep speed calculated at completion time
         } else if (status === "In Progress") {
-            if (today > pDate) {
+            let startD = null;
+            if (startDate) {
+                startD = new Date(startDate);
+                startD.setHours(0, 0, 0, 0);
+            }
+            if (isShortModule && startD && Math.floor((today - startD) / (1000 * 60 * 60 * 24)) > 1) {
+                evaluatedSpeed = "Slow";
+            } else if (today > pDate) {
                 const diffDays = Math.floor((today - pDate) / (1000 * 60 * 60 * 24));
                 evaluatedSpeed = diffDays <= 7 ? "Slow" : "Too slow";
             } else {
@@ -1450,7 +1459,11 @@ function getSpeedBadge(speed, status, plannedDate) {
             // Not Started
             if (today >= pDate) {
                 const diffDays = Math.floor((today - pDate) / (1000 * 60 * 60 * 24));
-                evaluatedSpeed = diffDays <= 7 ? "Slow" : "Too slow";
+                if (isShortModule) {
+                    evaluatedSpeed = diffDays <= 3 ? "Slow" : "Too slow";
+                } else {
+                    evaluatedSpeed = diffDays <= 7 ? "Slow" : "Too slow";
+                }
             } else {
                 evaluatedSpeed = "On-track";
             }
@@ -1495,11 +1508,23 @@ window.openProgressUpdateModal = function(username, courseName, path, moduleName
     document.getElementById("progStartDate").value = start || "";
     document.getElementById("progCompDate").value = comp || "";
     
-    // Default deadline to 2 weeks from now if not established
+    // Default deadline for short modules (1-3h): Same day or Next day
+    const matchMod = state.courses.find(c => c.course_name === courseName && (c.path || "") === (path || "") && c.module_name === moduleName);
+    const modMins = matchMod ? (matchMod.duration_minutes || 0) : 0;
+
     if (!planned) {
-        const twoWeeks = new Date();
-        twoWeeks.setDate(twoWeeks.getDate() + 14);
-        document.getElementById("progPlannedDate").value = twoWeeks.toISOString().split("T")[0];
+        const targetD = new Date();
+        if (modMins > 0 && modMins <= 120) {
+            // 1-2 hours: Same day completion
+            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+        } else if (modMins > 120 && modMins <= 180) {
+            // 3 hours: Next day completion
+            targetD.setDate(targetD.getDate() + 1);
+            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+        } else {
+            targetD.setDate(targetD.getDate() + 14);
+            document.getElementById("progPlannedDate").value = targetD.toISOString().split("T")[0];
+        }
     } else {
         document.getElementById("progPlannedDate").value = planned;
     }
@@ -1819,7 +1844,7 @@ function renderTeamProgressTable() {
                                                 </div>
                                             </td>
                                             <td>${getStatusBadge(p.status)}</td>
-                                            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
+                                            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0)}</td>
                                             <td class="actions-col">
                                                 <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${userData.username}', '${safeCourse}', '${safePath}', '${safeMod}', '${p.status}', ${p.progress_percent}, '${safeStart}', '${safeComp}', '${safeTarget}')">
                                                     <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}

@@ -717,12 +717,13 @@ def delete_employee(username):
         wb.save(EXCEL_FILE)
     wb.close()
 
-def get_tracking_status(status, planned_date_str, completion_date_str):
+def get_tracking_status(status, planned_date_str, completion_date_str, start_date_str=None, duration_minutes=0):
     """
     Calculate tracking status based on:
     - Status (Not Started, In Progress, Completed)
     - Planned Completion Date
     - Actual Completion Date / Current Date
+    - Start Date & Duration (Short modules 1-3h)
     """
     if not planned_date_str:
         return "On-track"
@@ -739,6 +740,21 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
         
     today = date.today()
     
+    # Parse start date if available
+    start_date = None
+    if start_date_str:
+        try:
+            if isinstance(start_date_str, datetime):
+                start_date = start_date_str.date()
+            elif isinstance(start_date_str, date):
+                start_date = start_date_str
+            else:
+                start_date = datetime.strptime(str(start_date_str).split()[0], "%Y-%m-%d").date()
+        except Exception:
+            start_date = None
+
+    is_short_module = (duration_minutes > 0 and duration_minutes <= 180)
+
     if status == "Completed":
         if completion_date_str:
             try:
@@ -758,6 +774,10 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
         else:
             return "Slow"
     elif status == "In Progress":
+        # Short modules (1-3h) started more than 1 day ago and still incomplete -> Slow
+        if is_short_module and start_date and (today - start_date).days > 1:
+            return "Slow"
+
         if today <= planned_date:
             return "On-track"
         else:
@@ -773,10 +793,16 @@ def get_tracking_status(status, planned_date_str, completion_date_str):
         else:
             # If today >= planned_date and user HAS NOT STARTED yet
             diff_days = (today - planned_date).days
-            if diff_days <= 7:
-                return "Slow"
+            if is_short_module:
+                if diff_days <= 3:
+                    return "Slow"
+                else:
+                    return "Too slow"
             else:
-                return "Too slow"
+                if diff_days <= 7:
+                    return "Slow"
+                else:
+                    return "Too slow"
 
 def get_progress(username=None):
     """Retrieve learning progress for one or all users."""
