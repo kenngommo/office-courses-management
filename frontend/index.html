@@ -55,6 +55,9 @@
                         </div>
                         <div class="dropdown-divider hidden" id="managerUserSwitcherDivider"></div>
 
+                        <button type="button" class="dropdown-item-btn" id="btnOpenProfileModal">
+                            <span class="material-icons-round font-sm">manage_accounts</span> Quản lý tài khoản
+                        </button>
                         <button type="button" class="dropdown-item-btn" id="btnOpenChangePassword">
                             <span class="material-icons-round font-sm">lock_reset</span> Đổi mật khẩu
                         </button>
@@ -659,7 +662,7 @@
                     <div class="input-with-icon has-toggle">
                         <span class="material-icons-round font-sm input-icon">lock</span>
                         <input type="password" id="loginPassword" class="form-control" required placeholder="Nhập mật khẩu của bạn">
-                        <button type="button" class="toggle-password-btn" id="toggleLoginPassword" title="Hiển thị/Ẩn mật khẩu">
+                        <button type="button" class="toggle-password-btn" id="toggleLoginPassword" data-target="loginPassword" title="Hiển thị/Ẩn mật khẩu">
                             <span class="material-icons-round font-sm">visibility</span>
                         </button>
                     </div>
@@ -695,9 +698,12 @@
                         </div>
                     </div>
                     <div id="forgotMsg" class="auth-info-msg hidden"></div>
+                    <button type="button" class="btn btn-primary w-100 mt-2 mb-3 hidden" id="btnForgotToLogin">
+                        <span class="material-icons-round font-sm">login</span> Đăng nhập bằng Mật khẩu tạm
+                    </button>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" id="btnCancelForgotModal">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Gửi yêu cầu Reset</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitForgot">Gửi yêu cầu Reset</button>
                     </div>
                 </form>
             </div>
@@ -715,20 +721,82 @@
                 <form id="changePasswordForm">
                     <div class="form-group">
                         <label for="changeOldPassword">Mật khẩu hiện tại</label>
-                        <input type="password" id="changeOldPassword" class="form-control" required placeholder="Nhập mật khẩu cũ">
+                        <div class="input-with-icon has-toggle">
+                            <span class="material-icons-round font-sm input-icon">lock</span>
+                            <input type="password" id="changeOldPassword" class="form-control" required placeholder="Nhập mật khẩu hiện tại">
+                            <button type="button" class="toggle-password-btn" data-target="changeOldPassword" title="Hiển thị/Ẩn mật khẩu">
+                                <span class="material-icons-round font-sm">visibility</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="changeNewPassword">Mật khẩu mới</label>
-                        <input type="password" id="changeNewPassword" class="form-control" required placeholder="Tối thiểu 4 ký tự">
+                        <div class="input-with-icon has-toggle">
+                            <span class="material-icons-round font-sm input-icon">key</span>
+                            <input type="password" id="changeNewPassword" class="form-control" required placeholder="Tối thiểu 4 ký tự">
+                            <button type="button" class="toggle-password-btn" data-target="changeNewPassword" title="Hiển thị/Ẩn mật khẩu">
+                                <span class="material-icons-round font-sm">visibility</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="changeConfirmPassword">Xác nhận mật khẩu mới</label>
-                        <input type="password" id="changeConfirmPassword" class="form-control" required placeholder="Nhập lại mật khẩu mới">
+                        <div class="input-with-icon has-toggle">
+                            <span class="material-icons-round font-sm input-icon">check_circle</span>
+                            <input type="password" id="changeConfirmPassword" class="form-control" required placeholder="Nhập lại mật khẩu mới">
+                            <button type="button" class="toggle-password-btn" data-target="changeConfirmPassword" title="Hiển thị/Ẩn mật khẩu">
+                                <span class="material-icons-round font-sm">visibility</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="changePwdMsg" class="auth-error-msg hidden"></div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" id="btnCancelChangePwdModal">Hủy</button>
                         <button type="submit" class="btn btn-primary">Đổi mật khẩu mới</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PROFILE & AVATAR MANAGEMENT -->
+    <div class="modal-backdrop" id="profileModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Quản lý tài khoản cá nhân</h3>
+                <span class="material-icons-round close-btn" id="closeProfileModal">close</span>
+            </div>
+            <div class="modal-body">
+                <div class="profile-avatar-sec text-center mb-4">
+                    <div class="profile-avatar-wrapper">
+                        <img id="profileModalAvatarImg" src="https://ui-avatars.com/api/?name=User" alt="Avatar">
+                    </div>
+                    <h4 class="mt-2 mb-0" id="profileModalFullName">Tên người dùng</h4>
+                    <span class="role-badge" id="profileModalRole">Employee</span>
+                    <p class="font-xs text-muted mt-1 mb-0" id="profileModalEmail">email@areteepm.com</p>
+                </div>
+
+                <form id="profileAvatarForm">
+                    <div class="form-group mb-3">
+                        <label for="avatarFileInput">Tải ảnh đại diện từ máy tính</label>
+                        <input type="file" id="avatarFileInput" accept="image/*" class="form-control">
+                        <small class="text-muted font-xs display-block mt-1">Chấp nhận định dạng: JPG, PNG, WEBP, GIF</small>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="avatarUrlInput">Hoặc nhập đường dẫn URL ảnh đại diện</label>
+                        <input type="url" id="avatarUrlInput" class="form-control" placeholder="https://example.com/avatar.jpg">
+                    </div>
+
+                    <div id="profileMsg" class="auth-info-msg hidden"></div>
+
+                    <div class="profile-action-rows gap-2 flex-column">
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
+                            <span class="material-icons-round font-sm">cloud_upload</span> LƯU ẢNH ĐẠI DIỆN MỚI
+                        </button>
+                        <button type="button" class="btn btn-secondary w-100" id="btnProfileChangePwd">
+                            <span class="material-icons-round font-sm">lock_reset</span> Đổi mật khẩu tài khoản
+                        </button>
                     </div>
                 </form>
             </div>

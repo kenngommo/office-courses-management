@@ -1,9 +1,10 @@
-import os
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
+import shutil
+
 from backend.db_manager import (
     init_db,
     get_courses,
@@ -19,7 +20,8 @@ from backend.db_manager import (
     delete_enrollment,
     authenticate_user,
     change_user_password,
-    reset_user_password
+    reset_user_password,
+    update_user_avatar
 )
 
 # Initialize sheet schema if not already present
@@ -242,8 +244,40 @@ def api_delete_enrollment(
             raise HTTPException(status_code=400, detail="target_name or course_name is required")
         delete_enrollment(username, name_to_del)
         return {"status": "success", "message": f"Successfully deleted enrollment for {username} in {name_to_del}"}
+@app.post("/api/user/avatar")
+async def api_update_avatar(
+    username: str = Form(...),
+    avatar_url: Optional[str] = Form(None),
+    avatar_file: Optional[UploadFile] = File(None)
+):
+    try:
+        final_url = avatar_url.strip() if avatar_url else None
+        
+        if avatar_file and avatar_file.filename:
+            # Ensure uploads directory exists
+            uploads_dir = os.path.join(FRONTEND_DIR, "uploads", "avatars")
+            os.makedirs(uploads_dir, exist_ok=True)
+            
+            # Clean filename and save
+            safe_filename = f"{username.strip()}_{avatar_file.filename.replace(' ', '_')}"
+            file_path = os.path.join(uploads_dir, safe_filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(avatar_file.file, buffer)
+                
+            final_url = f"/uploads/avatars/{safe_filename}"
+            
+        if not final_url:
+            raise HTTPException(status_code=400, detail="Vui lòng tải lên tệp ảnh hoặc nhập đường dẫn URL ảnh.")
+            
+        updated_user = update_user_avatar(username, final_url)
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người dùng.")
+            
+        return {"status": "success", "message": "Cập nhật ảnh đại diện thành công!", "user": updated_user}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting enrollment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Lỗi cập nhật ảnh đại diện: {str(e)}")
 
 from fastapi.responses import Response
 
@@ -253,6 +287,10 @@ def favicon():
 
 # Mount the frontend static files using absolute path
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+UPLOADS_DIR = os.path.join(FRONTEND_DIR, "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 

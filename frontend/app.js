@@ -78,6 +78,12 @@ const changePasswordModal = document.getElementById("changePasswordModal");
 const changePasswordForm = document.getElementById("changePasswordForm");
 const changePwdMsg = document.getElementById("changePwdMsg");
 
+const profileModal = document.getElementById("profileModal");
+const btnOpenProfileModal = document.getElementById("btnOpenProfileModal");
+const profileAvatarForm = document.getElementById("profileAvatarForm");
+const profileMsg = document.getElementById("profileMsg");
+const btnProfileChangePwd = document.getElementById("btnProfileChangePwd");
+
 const userProfileBtn = document.getElementById("userProfileBtn");
 const userDropdownMenu = document.getElementById("userDropdownMenu");
 const btnOpenChangePassword = document.getElementById("btnOpenChangePassword");
@@ -167,21 +173,23 @@ function setupEventHandlers() {
         };
     }
     
-    // Password Visibility Toggle Button
-    const toggleLoginPassword = document.getElementById("toggleLoginPassword");
-    if (toggleLoginPassword) {
-        toggleLoginPassword.onclick = () => {
-            const pwdInput = document.getElementById("loginPassword");
-            const icon = toggleLoginPassword.querySelector("span");
+    // Password Visibility Toggle Buttons (Supports Login & Change Password fields)
+    document.querySelectorAll(".toggle-password-btn").forEach(btn => {
+        btn.onclick = (e) => {
+            e.preventDefault();
+            const targetId = btn.getAttribute("data-target") || "loginPassword";
+            const pwdInput = document.getElementById(targetId);
+            if (!pwdInput) return;
+            const icon = btn.querySelector("span");
             if (pwdInput.type === "password") {
                 pwdInput.type = "text";
-                icon.textContent = "visibility_off";
+                if (icon) icon.textContent = "visibility_off";
             } else {
                 pwdInput.type = "password";
-                icon.textContent = "visibility";
+                if (icon) icon.textContent = "visibility";
             }
         };
-    }
+    });
 
     // Login Form Submit
     if (loginForm) {
@@ -227,19 +235,36 @@ function setupEventHandlers() {
     }
 
     // Forgot Password Trigger & Submit
+    const btnForgotToLogin = document.getElementById("btnForgotToLogin");
+    
     document.getElementById("btnOpenForgotPassword").onclick = () => {
         forgotPasswordForm.reset();
         forgotMsg.classList.add("hidden");
+        if (btnForgotToLogin) btnForgotToLogin.classList.add("hidden");
         showModal(forgotPasswordModal);
     };
 
     document.getElementById("closeForgotModal").onclick = () => hideModal(forgotPasswordModal);
     document.getElementById("btnCancelForgotModal").onclick = () => hideModal(forgotPasswordModal);
 
+    if (btnForgotToLogin) {
+        btnForgotToLogin.onclick = () => {
+            hideModal(forgotPasswordModal);
+            loginOverlay.classList.add("active");
+            const emailVal = document.getElementById("forgotEmail").value.trim();
+            if (emailVal) {
+                document.getElementById("loginUserOrEmail").value = emailVal;
+            }
+            document.getElementById("loginPassword").focus();
+        };
+    }
+
     if (forgotPasswordForm) {
         forgotPasswordForm.onsubmit = async (e) => {
             e.preventDefault();
             forgotMsg.classList.add("hidden");
+            if (btnForgotToLogin) btnForgotToLogin.classList.add("hidden");
+
             const emailVal = document.getElementById("forgotEmail").value.trim();
             try {
                 const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
@@ -252,6 +277,8 @@ function setupEventHandlers() {
                     forgotMsg.className = "auth-info-msg";
                     forgotMsg.textContent = data.message;
                     forgotMsg.classList.remove("hidden");
+                    
+                    if (btnForgotToLogin) btnForgotToLogin.classList.remove("hidden");
                     await refreshData();
                 } else {
                     forgotMsg.className = "auth-error-msg";
@@ -262,6 +289,85 @@ function setupEventHandlers() {
                 forgotMsg.className = "auth-error-msg";
                 forgotMsg.textContent = "Lỗi kết nối máy chủ.";
                 forgotMsg.classList.remove("hidden");
+            }
+        };
+    }
+
+    // Profile & Avatar Management Triggers
+    if (btnOpenProfileModal) {
+        btnOpenProfileModal.onclick = () => {
+            userDropdownMenu.classList.remove("show");
+            if (!state.currentUser) return;
+            
+            document.getElementById("profileModalFullName").textContent = state.currentUser.fullname;
+            document.getElementById("profileModalRole").textContent = state.currentUser.role;
+            document.getElementById("profileModalEmail").textContent = state.currentUser.email || "Chưa đăng ký email";
+            document.getElementById("profileModalAvatarImg").src = state.currentUser.avatar_url;
+            
+            document.getElementById("avatarUrlInput").value = state.currentUser.avatar_url || "";
+            document.getElementById("avatarFileInput").value = "";
+            profileMsg.classList.add("hidden");
+            
+            showModal(profileModal);
+        };
+    }
+
+    document.getElementById("closeProfileModal").onclick = () => hideModal(profileModal);
+
+    if (btnProfileChangePwd) {
+        btnProfileChangePwd.onclick = () => {
+            hideModal(profileModal);
+            changePasswordForm.reset();
+            changePwdMsg.classList.add("hidden");
+            showModal(changePasswordModal);
+        };
+    }
+
+    // Submit Profile Avatar Form
+    if (profileAvatarForm) {
+        profileAvatarForm.onsubmit = async (e) => {
+            e.preventDefault();
+            profileMsg.classList.add("hidden");
+
+            const fileInput = document.getElementById("avatarFileInput");
+            const urlInput = document.getElementById("avatarUrlInput");
+
+            const formData = new FormData();
+            formData.append("username", state.currentUser.username);
+
+            if (fileInput.files && fileInput.files[0]) {
+                formData.append("avatar_file", fileInput.files[0]);
+            }
+            if (urlInput.value.trim()) {
+                formData.append("avatar_url", urlInput.value.trim());
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/user/avatar`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok && data.user) {
+                    state.currentUser = data.user;
+                    localStorage.setItem("epm_user", JSON.stringify(data.user));
+                    profileMsg.className = "auth-info-msg";
+                    profileMsg.textContent = "Cập nhật ảnh đại diện thành công!";
+                    profileMsg.classList.remove("hidden");
+                    
+                    document.getElementById("profileModalAvatarImg").src = data.user.avatar_url;
+                    onUserChanged();
+                    await refreshData();
+                } else {
+                    profileMsg.className = "auth-error-msg";
+                    profileMsg.textContent = data.detail || "Cập nhật ảnh thất bại.";
+                    profileMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                profileMsg.className = "auth-error-msg";
+                profileMsg.textContent = "Không thể kết nối tới máy chủ.";
+                profileMsg.classList.remove("hidden");
             }
         };
     }

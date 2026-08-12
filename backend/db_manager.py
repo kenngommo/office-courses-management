@@ -28,12 +28,12 @@ def init_db():
     # 2. Check Employees sheet
     if "Danh sách nhân viên" not in wb.sheetnames:
         ws = wb.create_sheet("Danh sách nhân viên")
-        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword']
+        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword', 'AvatarUrl']
         ws.append(headers)
         dirty = True
     else:
         ws = wb["Danh sách nhân viên"]
-        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword']
+        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword', 'AvatarUrl']
         for col_idx, h in enumerate(headers, 1):
             if ws.cell(row=1, column=col_idx).value != h:
                 ws.cell(row=1, column=col_idx).value = h
@@ -242,12 +242,14 @@ def get_employees():
         role = ws.cell(row=r, column=4).value
         email = ws.cell(row=r, column=5).value
         must_change = ws.cell(row=r, column=7).value
+        avatar_val = ws.cell(row=r, column=8).value
             
         if username is not None and str(username).strip() != "":
             fn = str(fullname).strip() if fullname else ""
             en = str(english_name).strip() if english_name else ""
             em = str(email).strip() if email else ""
             name_for_avatar = en if en else fn
+            avatar_url = str(avatar_val).strip() if avatar_val and str(avatar_val).strip() else get_avatar_url(name_for_avatar, em)
             employees.append({
                 "username": str(username).strip(),
                 "fullname": fn,
@@ -255,12 +257,12 @@ def get_employees():
                 "role": str(role).strip() if role else "Employee",
                 "email": em,
                 "must_change_password": bool(must_change),
-                "avatar_url": get_avatar_url(name_for_avatar, em)
+                "avatar_url": avatar_url
             })
     wb.close()
     return employees
 
-def save_employee(username, fullname, role, english_name="", email="", initial_password=None):
+def save_employee(username, fullname, role, english_name="", email="", initial_password=None, avatar_url=None):
     """Add or update an employee."""
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -273,6 +275,7 @@ def save_employee(username, fullname, role, english_name="", email="", initial_p
     ws.cell(row=1, column=5).value = 'Email'
     ws.cell(row=1, column=6).value = 'PasswordHash'
     ws.cell(row=1, column=7).value = 'MustChangePassword'
+    ws.cell(row=1, column=8).value = 'AvatarUrl'
         
     found_row = None
     u_str = str(username).strip()
@@ -290,14 +293,42 @@ def save_employee(username, fullname, role, english_name="", email="", initial_p
         ws.cell(row=found_row, column=3).value = english_name
         ws.cell(row=found_row, column=4).value = role
         ws.cell(row=found_row, column=5).value = email
+        if avatar_url is not None:
+            ws.cell(row=found_row, column=8).value = avatar_url
         if not ws.cell(row=found_row, column=6).value:
             ws.cell(row=found_row, column=6).value = pwd_hash
             ws.cell(row=found_row, column=7).value = True
     else:
-        ws.append([u_str, fullname, english_name, role, email, pwd_hash, True])
+        ws.append([u_str, fullname, english_name, role, email, pwd_hash, True, avatar_url or ""])
         
     wb.save(EXCEL_FILE)
     wb.close()
+
+def update_user_avatar(username: str, avatar_url: str):
+    """Update user's avatar_url in sheet.xlsx and return updated user object."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách nhân viên"]
+    
+    u_target = str(username).strip().lower()
+    found_row = None
+    for r in range(2, ws.max_row + 1):
+        u = str(ws.cell(row=r, column=1).value or "").strip()
+        if u.lower() == u_target:
+            found_row = r
+            break
+            
+    if not found_row:
+        wb.close()
+        return None
+        
+    ws.cell(row=found_row, column=8).value = avatar_url.strip()
+    wb.save(EXCEL_FILE)
+    wb.close()
+    
+    # Return updated user object
+    all_emps = get_employees()
+    return next((e for e in all_emps if e["username"].lower() == u_target), None)
 
 def authenticate_user(user_or_email: str, password_candidate: str):
     """Authenticate user by username or email and password."""
@@ -320,6 +351,7 @@ def authenticate_user(user_or_email: str, password_candidate: str):
         em = str(ws.cell(row=r, column=5).value or "").strip()
         pwd_hash = str(ws.cell(row=r, column=6).value or "").strip()
         must_change = ws.cell(row=r, column=7).value
+        avatar_val = ws.cell(row=r, column=8).value
         
         em_prefix = em.split("@")[0].lower() if "@" in em else ""
         if u.lower() == query or (em and em.lower() == query) or (em_prefix and em_prefix == query):
@@ -331,7 +363,8 @@ def authenticate_user(user_or_email: str, password_candidate: str):
                 "role": role,
                 "email": em,
                 "password_hash": pwd_hash,
-                "must_change_password": bool(must_change)
+                "must_change_password": bool(must_change),
+                "avatar_url": str(avatar_val).strip() if avatar_val and str(avatar_val).strip() else None
             }
             break
             
@@ -341,6 +374,7 @@ def authenticate_user(user_or_email: str, password_candidate: str):
         
     if verify_password(found["password_hash"], candidate_pwd) or verify_password(found["password_hash"], password_candidate):
         name_for_avatar = found["english_name"] if found["english_name"] else found["fullname"]
+        final_avatar = found["avatar_url"] if found["avatar_url"] else get_avatar_url(name_for_avatar, found["email"])
         return {
             "username": found["username"],
             "fullname": found["fullname"],
@@ -348,7 +382,7 @@ def authenticate_user(user_or_email: str, password_candidate: str):
             "role": found["role"],
             "email": found["email"],
             "must_change_password": found["must_change_password"],
-            "avatar_url": get_avatar_url(name_for_avatar, found["email"])
+            "avatar_url": final_avatar
         }
     return None
 
