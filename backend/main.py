@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException, Query, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -244,6 +245,9 @@ def api_delete_enrollment(
             raise HTTPException(status_code=400, detail="target_name or course_name is required")
         delete_enrollment(username, name_to_del)
         return {"status": "success", "message": f"Successfully deleted enrollment for {username} in {name_to_del}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting enrollment: {str(e)}")
+
 @app.post("/api/user/avatar")
 async def api_update_avatar(
     username: str = Form(...),
