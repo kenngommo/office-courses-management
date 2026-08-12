@@ -1164,7 +1164,7 @@ function renderPersonalTab() {
                 ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
             </td>
             <td><span class="font-mono">${courseModule.duration}</span></td>
-            <td><span class="font-mono text-secondary">${plannedDate || "Chưa thiết lập"}</span></td>
+            <td><span class="font-mono text-secondary">${plannedDate || t("not_set")}</span></td>
             <td>
                 <div class="prog-bar-cell">
                     <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${currentPercent}%"></div></div>
@@ -1175,7 +1175,7 @@ function renderPersonalTab() {
             <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate)}</td>
             <td class="actions-col">
                 <button class="btn btn-secondary btn-sm" onclick="openProgressUpdateModal('${courseModule.course_name}', '${courseModule.path || ""}', '${courseModule.module_name}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
-                    <span class="material-icons-round font-sm">edit</span> Cập nhật
+                    <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
                 </button>
             </td>
         `;
@@ -1186,7 +1186,7 @@ function renderPersonalTab() {
         personalProgressTableBody.innerHTML = `
             <tr>
                 <td colspan="10" class="text-center text-muted" style="padding: 2rem;">
-                    Chưa được đăng ký học khóa học nào. Vui lòng liên hệ Quản lý (Manager) để đăng ký lộ trình học.
+                    ${state.lang === 'en' ? 'No course enrolled yet. Please contact your Manager to register your learning path.' : 'Chưa được đăng ký học khóa học nào. Vui lòng liên hệ Quản lý (Manager) để đăng ký lộ trình học.'}
                 </td>
             </tr>
         `;
@@ -1352,7 +1352,7 @@ function renderTeamProgressTable() {
             <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
             <td class="actions-col">
                 <button class="btn btn-secondary btn-sm" onclick="viewEmployeeDetail('${safeUsername}')" title="Soi chi tiết tiến độ bài học của nhân viên này">
-                    <span class="material-icons-round font-sm">visibility</span> Chi tiết
+                    <span class="material-icons-round font-sm">visibility</span> ${state.lang === 'en' ? 'Details' : 'Chi tiết'}
                 </button>
             </td>
         `;

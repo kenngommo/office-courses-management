@@ -140,7 +140,7 @@
                             </div>
                             <div class="kpi-data">
                                 <h3 id="kpiTotalModules">0</h3>
-                                <p>Tổng số module</p>
+                                <p data-i18n="stat_total_modules">Tổng số module</p>
                             </div>
                         </div>
                         <div class="kpi-card glass">
@@ -149,7 +149,7 @@
                             </div>
                             <div class="kpi-data">
                                 <h3 id="kpiCompleted">0</h3>
-                                <p>Đã hoàn thành</p>
+                                <p data-i18n="stat_completed">Đã hoàn thành</p>
                             </div>
                         </div>
                         <div class="kpi-card glass">
@@ -158,7 +158,7 @@
                             </div>
                             <div class="kpi-data">
                                 <h3 id="kpiInProgress">0</h3>
-                                <p>Đang tiến hành</p>
+                                <p data-i18n="stat_in_progress">Đang tiến hành</p>
                             </div>
                         </div>
                         <div class="kpi-card glass">
@@ -167,7 +167,7 @@
                             </div>
                             <div class="kpi-data">
                                 <h3 id="kpiDelayed">0</h3>
-                                <p>Trễ tiến độ</p>
+                                <p data-i18n="stat_delayed">Trễ tiến độ</p>
                             </div>
                         </div>
                     </div>
@@ -175,7 +175,7 @@
                     <!-- Personal Analytics Charts Row -->
                     <div class="personal-analytics-row">
                         <div class="analytics-card glass progress-ring-card">
-                            <h4>Tiến độ khóa học (Trọng số giờ)</h4>
+                            <h4 data-i18n="chart_weighted_progress">Tiến độ khóa học (Trọng số giờ)</h4>
                             <div class="progress-ring-container">
                                 <svg class="progress-ring" width="120" height="120">
                                     <circle class="progress-ring-circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60"/>
@@ -187,7 +187,7 @@
                             </div>
                         </div>
                         <div class="analytics-card glass progress-speed-card">
-                            <h4>Trạng thái học tập của Module</h4>
+                            <h4 data-i18n="chart_module_status">Trạng thái học tập của Module</h4>
                             <div class="stacked-bar-container">
                                 <div class="stacked-bar">
                                     <div class="stacked-segment segment-fast" id="segFast" style="width: 0%"></div>
@@ -196,10 +196,10 @@
                                     <div class="stacked-segment segment-tooslow" id="segTooSlow" style="width: 0%"></div>
                                 </div>
                                 <div class="stacked-legend">
-                                    <span class="legend-item"><span class="color-dot bg-fast"></span> Nhanh: <strong id="lblFastCount">0</strong></span>
-                                    <span class="legend-item"><span class="color-dot bg-ontrack"></span> Đúng hạn: <strong id="lblOnTrackCount">0</strong></span>
-                                    <span class="legend-item"><span class="color-dot bg-slow"></span> Chậm: <strong id="lblSlowCount">0</strong></span>
-                                    <span class="legend-item"><span class="color-dot bg-tooslow"></span> Quá chậm: <strong id="lblTooSlowCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-fast"></span> <span data-i18n="legend_fast">Nhanh:</span> <strong id="lblFastCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-ontrack"></span> <span data-i18n="legend_ontrack">Đúng hạn:</span> <strong id="lblOnTrackCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-slow"></span> <span data-i18n="legend_slow">Chậm:</span> <strong id="lblSlowCount">0</strong></span>
+                                    <span class="legend-item"><span class="color-dot bg-tooslow"></span> <span data-i18n="legend_tooslow">Quá chậm:</span> <strong id="lblTooSlowCount">0</strong></span>
                                 </div>
                             </div>
                         </div>
@@ -210,23 +210,23 @@
                         <div class="card-header">
                             <div class="header-title-sec">
                                 <span class="material-icons-round">list_alt</span>
-                                <h3>Danh sách lộ trình học của tôi</h3>
+                                <h3 data-i18n="title_my_learning_path">Danh sách lộ trình học của tôi</h3>
                             </div>
                         </div>
                         <div class="table-responsive">
                             <table class="data-table" id="personalProgressTable">
                                 <thead>
                                     <tr>
-                                        <th>Phân loại (Plan)</th>
-                                        <th>Khóa học (Course)</th>
-                                        <th>Lộ trình (Path)</th>
-                                        <th>Tên Module</th>
-                                        <th>Thời lượng</th>
-                                        <th>Hạn hoàn thành (Target)</th>
-                                        <th>Tiến độ (%)</th>
-                                        <th>Trạng thái</th>
-                                        <th>Đánh giá</th>
-                                        <th class="actions-col">Hành động</th>
+                                        <th data-i18n="col_plan">Phân loại (Plan)</th>
+                                        <th data-i18n="col_course">Khóa học (Course)</th>
+                                        <th data-i18n="col_path">Lộ trình (Path)</th>
+                                        <th data-i18n="col_module">Tên Module</th>
+                                        <th data-i18n="col_duration">Thời lượng</th>
+                                        <th data-i18n="col_target_date">Hạn hoàn thành (Target)</th>
+                                        <th data-i18n="col_progress">Tiến độ (%)</th>
+                                        <th data-i18n="col_status">Trạng thái</th>
+                                        <th data-i18n="col_tracking">Đánh giá</th>
+                                        <th class="actions-col" data-i18n="col_actions">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -258,17 +258,17 @@
                     <!-- 2A. SUB-TAB: TEAM PROGRESS -->
                     <div id="team-progress-subtab" class="subtab-pane active">
                         <div class="pane-header">
-                            <h2>Tổng hợp tiến độ nhân viên</h2>
+                            <h2 data-i18n="title_team_progress">Tổng hợp tiến độ nhân viên</h2>
                         </div>
                         
                         <!-- Progress chart summary container -->
                         <div class="progress-bar-legend glass">
-                            <div class="legend-title">Ghi chú trạng thái đánh giá:</div>
+                            <div class="legend-title" data-i18n="lbl_legend_title">Ghi chú trạng thái đánh giá:</div>
                             <div class="legend-items">
-                                <span class="legend-badge status-fast"><span class="color-dot bg-fast"></span> Học nhanh</span>
-                                <span class="legend-badge status-ontrack"><span class="color-dot bg-ontrack"></span> Đúng tiến độ</span>
-                                <span class="legend-badge status-slow"><span class="color-dot bg-slow"></span> Chậm</span>
-                                <span class="legend-badge status-tooslow"><span class="color-dot bg-tooslow"></span> Quá chậm</span>
+                                <span class="legend-badge status-fast"><span class="color-dot bg-fast"></span> <span data-i18n="track_fast">Học nhanh</span></span>
+                                <span class="legend-badge status-ontrack"><span class="color-dot bg-ontrack"></span> <span data-i18n="track_ontrack">Đúng tiến độ</span></span>
+                                <span class="legend-badge status-slow"><span class="color-dot bg-slow"></span> <span data-i18n="track_slow">Chậm</span></span>
+                                <span class="legend-badge status-tooslow"><span class="color-dot bg-tooslow"></span> <span data-i18n="track_too_slow">Quá chậm</span></span>
                             </div>
                         </div>
 
@@ -278,15 +278,15 @@
                                 <table class="data-table" id="teamProgressTable">
                                     <thead>
                                         <tr>
-                                            <th>Nhân viên</th>
-                                            <th>Phân loại (Plan)</th>
-                                            <th>Khóa học (Course)</th>
-                                            <th>Lộ trình (Path)</th>
-                                            <th>Module</th>
-                                            <th>Hạn hoàn thành (Target)</th>
-                                            <th>Tiến độ (%)</th>
-                                            <th>Đánh giá trạng thái</th>
-                                            <th class="actions-col">Hành động</th>
+                                            <th data-i18n="col_employee">Nhân viên</th>
+                                            <th data-i18n="col_plan">Phân loại (Plan)</th>
+                                            <th data-i18n="col_course">Khóa học (Course)</th>
+                                            <th data-i18n="col_path">Lộ trình (Path)</th>
+                                            <th data-i18n="col_module">Module</th>
+                                            <th data-i18n="col_target_date">Hạn hoàn thành (Target)</th>
+                                            <th data-i18n="col_progress">Tiến độ (%)</th>
+                                            <th data-i18n="col_tracking">Đánh giá trạng thái</th>
+                                            <th class="actions-col" data-i18n="col_actions">Hành động</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -300,9 +300,9 @@
                     <!-- 2B. SUB-TAB: EMPLOYEE MANAGEMENT -->
                     <div id="employee-mgmt-subtab" class="subtab-pane">
                         <div class="pane-header flex-header">
-                            <h2>Danh sách nhân sự hệ thống</h2>
+                            <h2 data-i18n="title_emp_list">Danh sách nhân sự hệ thống</h2>
                             <button class="btn btn-primary" id="btnOpenAddEmployee">
-                                <span class="material-icons-round">add</span> Thêm nhân viên
+                                <span class="material-icons-round">add</span> <span data-i18n="btn_add_emp">+ Thêm nhân viên mới</span>
                             </button>
                         </div>
 
@@ -311,12 +311,12 @@
                                 <table class="data-table" id="employeesTable">
                                     <thead>
                                         <tr>
-                                            <th>Tên tài khoản (Username)</th>
-                                            <th>Họ và tên (Tiếng Việt)</th>
-                                            <th>Tên Tiếng Anh</th>
-                                            <th>Email</th>
-                                            <th>Quyền hạn (Role)</th>
-                                            <th class="actions-col">Hành động</th>
+                                            <th data-i18n="col_username">Tên tài khoản (Username)</th>
+                                            <th data-i18n="col_fullname">Họ và tên (Tiếng Việt)</th>
+                                            <th data-i18n="col_english_name">Tên Tiếng Anh</th>
+                                            <th data-i18n="col_email">Email</th>
+                                            <th data-i18n="col_role">Quyền hạn (Role)</th>
+                                            <th class="actions-col" data-i18n="col_actions">Thao tác</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -331,8 +331,8 @@
                     <div id="course-mgmt-subtab" class="subtab-pane">
                         <div class="pane-header flex-header">
                             <div class="header-title-sec-wrap">
-                                <h2>Danh sách chương trình học</h2>
-                                <p class="text-secondary font-sm">Quản lý khoá học theo phân cấp (Level 1: Phân loại / Plan - Level 2: Khóa học & Module)</p>
+                                <h2 data-i18n="title_course_catalog">Danh sách chương trình học</h2>
+                                <p class="text-secondary font-sm" data-i18n="sub_course_catalog">Quản lý khoá học theo phân cấp (Level 1: Phân loại / Plan - Level 2: Khóa học & Module)</p>
                             </div>
                             <div class="mgmt-actions-row">
                                 <button class="btn btn-secondary btn-sm" id="btnExpandAllPlans">
@@ -356,7 +356,7 @@
                     <!-- 2D. SUB-TAB: COURSE ENROLLMENT -->
                     <div id="enrollment-subtab" class="subtab-pane">
                         <div class="pane-header flex-header">
-                            <h2>Đăng ký & Lập lịch khóa học cho nhân viên</h2>
+                            <h2 data-i18n="title_enrollment_mgmt">Đăng ký & Lập lịch khóa học cho nhân viên</h2>
                             <button class="btn btn-primary" id="btnOpenAddEnrollment">
                                 <span class="material-icons-round">add</span> <span data-i18n="btn_add_enr">+ Đăng ký Lộ trình mới</span>
                             </button>
@@ -367,13 +367,13 @@
                                 <table class="data-table" id="enrollmentsTable">
                                     <thead>
                                         <tr>
-                                            <th>Tài khoản</th>
-                                            <th>Tên nhân viên</th>
-                                            <th>Tên khóa học</th>
-                                            <th>Ngày bắt đầu</th>
-                                            <th>Ngày kết thúc dự kiến</th>
-                                            <th>Lịch làm việc</th>
-                                            <th class="actions-col">Hành động</th>
+                                            <th data-i18n="col_username">Tài khoản</th>
+                                            <th data-i18n="col_employee">Tên nhân viên</th>
+                                            <th data-i18n="col_course">Tên khóa học</th>
+                                            <th data-i18n="col_start_date">Ngày bắt đầu</th>
+                                            <th data-i18n="col_planned_end">Ngày kết thúc dự kiến</th>
+                                            <th data-i18n="col_workweek">Lịch làm việc</th>
+                                            <th class="actions-col" data-i18n="col_actions">Thao tác</th>
                                         </tr>
                                     </thead>
                                     <tbody>
