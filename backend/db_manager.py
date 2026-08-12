@@ -48,7 +48,7 @@ def init_db():
             if u_val is not None and str(u_val).strip() != "":
                 if not pwd_val:
                     ws.cell(row=r, column=6).value = default_pwd_hash
-                    ws.cell(row=r, column=7).value = True
+                    ws.cell(row=r, column=7).value = False
                     dirty = True
                 elif must_change is None:
                     ws.cell(row=r, column=7).value = False

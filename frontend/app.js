@@ -429,7 +429,6 @@ window.addEventListener("DOMContentLoaded", async () => {
                 
                 if (state.loggedInUser.must_change_password) {
                     setTimeout(() => {
-                        alert("Tài khoản của bạn cần đổi mật khẩu mới để đảm bảo an toàn.");
                         showModal(changePasswordModal);
                     }, 500);
                 }
@@ -574,7 +573,6 @@ function setupEventHandlers() {
 
                     if (data.user.must_change_password) {
                         setTimeout(() => {
-                            alert("Đây là lần đầu đăng nhập (hoặc mật khẩu vừa được reset). Vui lòng đổi mật khẩu mới ngay.");
                             showModal(changePasswordModal);
                         }, 400);
                     }
