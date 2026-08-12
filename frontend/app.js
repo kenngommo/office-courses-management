@@ -324,6 +324,7 @@ const personalProgressTableBody = document.querySelector("#personalProgressTable
 const teamProgressTableBody = document.querySelector("#teamProgressTable tbody");
 const employeesTableBody = document.querySelector("#employeesTable tbody");
 const courseHierarchyContainer = document.getElementById("courseHierarchyContainer");
+const teamHierarchyContainer = document.getElementById("teamHierarchyContainer");
 const enrollmentsTableBody = document.querySelector("#enrollmentsTable tbody");
 
 // Modals
@@ -949,8 +950,21 @@ function setupEventHandlers() {
     const btnCollapseAllPlans = document.getElementById("btnCollapseAllPlans");
     if (btnCollapseAllPlans) {
         btnCollapseAllPlans.onclick = () => {
-            document.querySelectorAll(".level1-card").forEach(c => c.classList.remove("expanded"));
-            document.querySelectorAll(".level2-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#courseHierarchyContainer .level1-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#courseHierarchyContainer .level2-card").forEach(c => c.classList.remove("expanded"));
+        };
+    }
+
+    const btnExpandAllTeamPlans = document.getElementById("btnExpandAllTeamPlans");
+    const btnCollapseAllTeamPlans = document.getElementById("btnCollapseAllTeamPlans");
+    if (btnExpandAllTeamPlans && btnCollapseAllTeamPlans) {
+        btnExpandAllTeamPlans.onclick = () => {
+            document.querySelectorAll("#teamHierarchyContainer .level1-card").forEach(c => c.classList.add("expanded"));
+            document.querySelectorAll("#teamHierarchyContainer .level2-card").forEach(c => c.classList.add("expanded"));
+        };
+        btnCollapseAllTeamPlans.onclick = () => {
+            document.querySelectorAll("#teamHierarchyContainer .level1-card").forEach(c => c.classList.remove("expanded"));
+            document.querySelectorAll("#teamHierarchyContainer .level2-card").forEach(c => c.classList.remove("expanded"));
         };
     }
 
@@ -1105,7 +1119,7 @@ function renderActiveDashboard() {
     const myEnrs = state.enrollments.filter(e => e.username === state.currentUser.username);
     const oldFilterVal = courseFilter.value;
     
-    courseFilter.innerHTML = `<option value="ALL">-- Tất cả các khóa --</option>`;
+    courseFilter.innerHTML = `<option value="ALL">${t("filter_all_courses")}</option>`;
     myEnrs.forEach(e => {
         const opt = document.createElement("option");
         opt.value = e.course_name;
@@ -1388,62 +1402,206 @@ window.viewEmployeeDetail = function(username) {
     }
 };
 
-// TEAM PROGRESS VIEW FOR MANAGER
+// TEAM PROGRESS HIERARCHICAL VIEW FOR MANAGER (LEVEL 1: PLAN -> LEVEL 2: COURSE -> LEVEL 3: EMPLOYEE PROGRESS)
 function renderTeamProgressTable() {
-    teamProgressTableBody.innerHTML = "";
-    
-    state.progress.forEach(p => {
-        const emp = state.users.find(u => u.username === p.username);
-        let employeeName = p.username;
-        if (emp) {
-            employeeName = emp.english_name ? `${emp.fullname} (${emp.english_name})` : emp.fullname;
-        }
-        
-        const avatarUrl = emp && emp.avatar_url ? emp.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(employeeName)}&background=3b82f6&color=fff&bold=true`;
-        
-        const tr = document.createElement("tr");
-        const safeUsername = p.username.replace(/'/g, "\\'");
-        const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
-        const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
+    if (!teamHierarchyContainer) return;
 
-        tr.innerHTML = `
-            <td>
-                <div class="user-cell-with-avatar">
-                    <img src="${avatarUrl}" class="table-user-avatar" alt="Avatar">
-                    <div>
-                        <strong>${employeeName}</strong>
-                        <div class="text-muted font-mono font-xs">ID: ${p.username}</div>
+    const expandedPlanNames = new Set();
+    const expandedCourseKeys = new Set();
+    document.querySelectorAll("#teamHierarchyContainer .level1-card.expanded").forEach(c => {
+        const titleEl = c.querySelector(".plan-name");
+        if (titleEl) expandedPlanNames.add(titleEl.textContent.trim());
+    });
+    document.querySelectorAll("#teamHierarchyContainer .level2-card.expanded").forEach(c => {
+        const titleEl = c.querySelector(".course-title");
+        if (titleEl) expandedCourseKeys.add(titleEl.textContent.trim());
+    });
+
+    teamHierarchyContainer.innerHTML = "";
+
+    if (state.progress.length === 0) {
+        teamHierarchyContainer.innerHTML = `
+            <div class="glass p-4 text-center text-muted">
+                <span class="material-icons-round font-lg display-block mb-2">assignment_late</span>
+                <span>${state.lang === 'en' ? 'No employee progress records found.' : 'Chưa có bản ghi tiến độ nào của nhân viên.'}</span>
+            </div>
+        `;
+        return;
+    }
+
+    // Group state.progress by Plan -> Course -> Records
+    const planMap = {};
+    state.progress.forEach(p => {
+        const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
+        const planName = p.plan || (matchCourse ? matchCourse.plan : "Khóa học khác");
+
+        if (!planMap[planName]) {
+            planMap[planName] = {
+                planName: planName,
+                courses: {},
+                totalRecords: 0,
+                completedRecords: 0
+            };
+        }
+
+        const courseKey = p.path ? `${p.course_name}:::${p.path}` : p.course_name;
+        if (!planMap[planName].courses[courseKey]) {
+            planMap[planName].courses[courseKey] = {
+                course_name: p.course_name,
+                path: p.path || "",
+                records: []
+            };
+        }
+
+        planMap[planName].courses[courseKey].records.push(p);
+        planMap[planName].totalRecords += 1;
+        if (p.status === "Completed") planMap[planName].completedRecords += 1;
+    });
+
+    let planIdx = 0;
+    Object.values(planMap).forEach(plan => {
+        planIdx++;
+        const courseKeys = Object.keys(plan.courses);
+        const courseCount = courseKeys.length;
+        const planCardId = `team-plan-card-${planIdx}`;
+
+        const planCard = document.createElement("div");
+        planCard.className = "level1-card glass";
+        if (expandedPlanNames.has(plan.planName)) {
+            planCard.classList.add("expanded");
+        }
+        planCard.id = planCardId;
+
+        // Level 1 Header
+        planCard.innerHTML = `
+            <div class="level1-header" onclick="toggleLevel1('${planCardId}')">
+                <div class="level1-title-sec">
+                    <span class="material-icons-round level1-chevron">keyboard_arrow_right</span>
+                    <span class="material-icons-round level1-icon">school</span>
+                    <div class="level1-title-text">
+                        <h3 class="plan-name">${plan.planName}</h3>
+                        <span class="level1-subtitle">${t("level1_subtitle")} • <strong class="text-success">${plan.completedRecords}/${plan.totalRecords} ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</strong></span>
                     </div>
                 </div>
-            </td>
-            <td>${p.course_name}</td>
-            <td>${p.path || "-"}</td>
-            <td>
-                <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ (Ratio 1.0x)' : 'Bài học nội dung'}">${teamModIcon}</span>
-                <strong>${p.module_name}</strong>
-                ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
-            </td>
-            <td><span class="badge ${p.status === 'Completed' ? 'badge-status-completed' : p.status === 'In Progress' ? 'badge-status-inprogress' : 'badge-status-notstarted'}">${p.status}</span></td>
-            <td><span class="font-mono text-secondary">${p.planned_completion_date}</span></td>
-            <td>
-                <div class="prog-bar-cell">
-                    <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${p.progress_percent}%"></div></div>
-                    <span class="font-mono">${p.progress_percent}%</span>
+                <div class="level1-stats flex-align-center">
+                    <span class="stat-badge count-badge">
+                        <span class="material-icons-round font-sm">menu_book</span> ${courseCount} ${state.lang === 'en' ? 'courses' : 'khóa học'}
+                    </span>
+                    <span class="stat-badge time-badge">
+                        <span class="material-icons-round font-sm">groups</span> ${plan.totalRecords} ${state.lang === 'en' ? 'records' : 'bản ghi'}
+                    </span>
                 </div>
-            </td>
-            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
-            <td class="actions-col">
-                <button class="btn btn-secondary btn-sm" onclick="viewEmployeeDetail('${safeUsername}')" title="Soi chi tiết tiến độ bài học của nhân viên này">
-                    <span class="material-icons-round font-sm">visibility</span> ${state.lang === 'en' ? 'Details' : 'Chi tiết'}
-                </button>
-            </td>
+            </div>
+            <div class="level2-body">
+                <!-- Level 2 courses list -->
+            </div>
         `;
-        teamProgressTableBody.appendChild(tr);
+
+        const level2Body = planCard.querySelector(".level2-body");
+
+        let courseIdx = 0;
+        courseKeys.forEach((cKey) => {
+            courseIdx++;
+            const courseObj = plan.courses[cKey];
+            const courseCardId = `team-course-card-${planIdx}-${courseIdx}`;
+
+            const courseCard = document.createElement("div");
+            courseCard.className = "level2-card";
+            if (expandedCourseKeys.has(courseObj.course_name)) {
+                courseCard.classList.add("expanded");
+            }
+            courseCard.id = courseCardId;
+
+            const recordsCount = courseObj.records.length;
+            const completedCount = courseObj.records.filter(r => r.status === "Completed").length;
+
+            // Level 2 Course HTML
+            courseCard.innerHTML = `
+                <div class="level2-header" onclick="toggleLevel2Modules('${courseCardId}', event)">
+                    <div class="level2-left">
+                        <button type="button" class="toggle-modules-btn font-mono" onclick="toggleLevel2Modules('${courseCardId}', event)" title="Xổ ra / Thu gọn danh sách nhân viên">
+                            <span class="toggle-arrow">&gt;</span>
+                        </button>
+                        <div class="course-info">
+                            <h4 class="course-title">${courseObj.course_name}</h4>
+                            ${courseObj.path ? `<span class="path-pill"><span class="material-icons-round font-xs">alt_route</span> Lộ trình: ${courseObj.path}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="level2-right flex-align-center gap-2">
+                        <div class="course-stat-item">
+                            <span class="material-icons-round">groups</span>
+                            <span><strong>${completedCount}/${recordsCount}</strong> ${state.lang === 'en' ? 'completed' : 'hoàn thành'}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="level3-modules-container">
+                    <table class="level3-module-table data-table">
+                        <thead>
+                            <tr>
+                                <th>${t("col_employee")}</th>
+                                <th>${t("col_module")}</th>
+                                <th>${t("col_status")}</th>
+                                <th>${t("col_target_date")}</th>
+                                <th>${t("col_progress")}</th>
+                                <th>${t("col_tracking")}</th>
+                                <th class="actions-col">${t("col_actions")}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${courseObj.records.map(p => {
+                                const emp = state.users.find(u => u.username === p.username);
+                                let employeeName = p.username;
+                                if (emp) {
+                                    employeeName = emp.english_name ? `${emp.fullname} (${emp.english_name})` : emp.fullname;
+                                }
+                                const avatarUrl = emp && emp.avatar_url ? emp.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(employeeName)}&background=3b82f6&color=fff&bold=true`;
+                                const safeUsername = p.username.replace(/'/g, "\\'");
+                                const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
+                                const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
+
+                                return `
+                                    <tr>
+                                        <td>
+                                            <div class="user-cell-with-avatar">
+                                                <img src="${avatarUrl}" class="table-user-avatar" alt="Avatar">
+                                                <div>
+                                                    <strong>${employeeName}</strong>
+                                                    <div class="text-muted font-mono font-xs">ID: ${p.username}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ' : 'Bài học nội dung'}">${teamModIcon}</span>
+                                            <strong>${p.module_name}</strong>
+                                            ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
+                                        </td>
+                                        <td>${getStatusBadge(p.status)}</td>
+                                        <td><span class="font-mono text-secondary">${p.planned_completion_date || '-'}</span></td>
+                                        <td>
+                                            <div class="prog-bar-cell">
+                                                <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${p.progress_percent}%"></div></div>
+                                                <span class="font-mono">${p.progress_percent}%</span>
+                                            </div>
+                                        </td>
+                                        <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date)}</td>
+                                        <td class="actions-col">
+                                            <button class="btn btn-secondary btn-sm" onclick="viewEmployeeDetail('${safeUsername}')" title="Soi chi tiết tiến độ bài học của nhân viên này">
+                                                <span class="material-icons-round font-sm">visibility</span> ${state.lang === 'en' ? 'Details' : 'Chi tiết'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            level2Body.appendChild(courseCard);
+        });
+
+        teamHierarchyContainer.appendChild(planCard);
     });
-    
-    if (state.progress.length === 0) {
-        teamProgressTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Chưa có bản ghi tiến độ nào của nhân viên.</td></tr>`;
-    }
 }
 
 // EMPLOYEE REGISTRY VIEW

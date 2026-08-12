@@ -109,12 +109,12 @@
                         <div class="header-title-sec-wrap flex-align-center">
                             <img id="personalAvatarImg" class="header-user-avatar" src="" alt="Avatar">
                             <div>
-                                <h2>Bảng tiến độ cá nhân: <span id="currentUserNameLabel">...</span></h2>
+                                <h2><span data-i18n="title_personal_progress">Bảng tiến độ cá nhân:</span> <span id="currentUserNameLabel">...</span></h2>
                                 <span class="role-badge" id="currentUserRoleLabel">Employee</span>
                             </div>
                         </div>
                         <div class="course-filter-container">
-                            <label for="courseFilter">Xem theo Khóa học:</label>
+                            <label for="courseFilter" data-i18n="lbl_filter_by_course">Xem theo Khóa học:</label>
                             <select id="courseFilter" class="form-control">
                                 <!-- Populated dynamically -->
                             </select>
@@ -125,10 +125,10 @@
                     <div class="viewing-user-banner glass hidden mb-3" id="viewingUserBanner">
                         <div class="banner-left flex-align-center gap-2">
                             <span class="material-icons-round font-md color-warning">visibility</span>
-                            <span>Đang ở chế độ <strong>Xem tiến độ nhân viên</strong>: <strong id="viewingUserNameTag">...</strong></span>
+                            <span><span data-i18n="viewing_as_prefix">Đang ở chế độ Xem tiến độ nhân viên:</span> <strong id="viewingUserNameTag">...</strong></span>
                         </div>
                         <button type="button" class="btn btn-sm btn-secondary" id="btnSwitchBackToSelf">
-                            <span class="material-icons-round font-xs">arrow_back</span> Trở về tài khoản của tôi
+                            <span class="material-icons-round font-xs">arrow_back</span> <span data-i18n="return_to_my_account">Trở về tài khoản của tôi</span>
                         </button>
                     </div>
 
@@ -257,12 +257,20 @@
 
                     <!-- 2A. SUB-TAB: TEAM PROGRESS -->
                     <div id="team-progress-subtab" class="subtab-pane active">
-                        <div class="pane-header">
+                        <div class="pane-header flex-header">
                             <h2 data-i18n="title_team_progress">Tổng hợp tiến độ nhân viên</h2>
+                            <div class="mgmt-actions-row">
+                                <button class="btn btn-secondary btn-sm" id="btnExpandAllTeamPlans">
+                                    <span class="material-icons-round font-sm">unfold_more</span> <span data-i18n="btn_expand_all">Mở tất cả</span>
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="btnCollapseAllTeamPlans">
+                                    <span class="material-icons-round font-sm">unfold_less</span> <span data-i18n="btn_collapse_all">Thu gọn tất cả</span>
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- Progress chart summary container -->
-                        <div class="progress-bar-legend glass">
+                        <div class="progress-bar-legend glass mb-3">
                             <div class="legend-title" data-i18n="lbl_legend_title">Ghi chú trạng thái đánh giá:</div>
                             <div class="legend-items">
                                 <span class="legend-badge status-fast"><span class="color-dot bg-fast"></span> <span data-i18n="track_fast">Học nhanh</span></span>
@@ -272,28 +280,9 @@
                             </div>
                         </div>
 
-                        <!-- Team Progress table -->
-                        <div class="data-card glass">
-                            <div class="table-responsive">
-                                <table class="data-table" id="teamProgressTable">
-                                    <thead>
-                                        <tr>
-                                            <th data-i18n="col_employee">Nhân viên</th>
-                                            <th data-i18n="col_plan">Phân loại (Plan)</th>
-                                            <th data-i18n="col_course">Khóa học (Course)</th>
-                                            <th data-i18n="col_path">Lộ trình (Path)</th>
-                                            <th data-i18n="col_module">Module</th>
-                                            <th data-i18n="col_target_date">Hạn hoàn thành (Target)</th>
-                                            <th data-i18n="col_progress">Tiến độ (%)</th>
-                                            <th data-i18n="col_tracking">Đánh giá trạng thái</th>
-                                            <th class="actions-col" data-i18n="col_actions">Hành động</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Rendered dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
+                        <!-- Team Progress Hierarchy Container (Level 1: Plan -> Level 2: Course -> Level 3: Employee Progress) -->
+                        <div id="teamHierarchyContainer" class="hierarchy-container">
+                            <!-- Rendered dynamically via JS -->
                         </div>
                     </div>
 
