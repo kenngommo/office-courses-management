@@ -814,9 +814,51 @@ def save_progress(username, course_name, path, module_name, status, progress_per
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Tiến độ học tập"]
     
+    # Normalize status and percent alignment
+    try:
+        progress_percent = float(progress_percent)
+    except Exception:
+        progress_percent = 0.0
+
+    if progress_percent >= 100.0:
+        status = "Completed"
+        progress_percent = 100.0
+    elif progress_percent > 0.0 and status == "Not Started":
+        status = "In Progress"
+
+    today_val = date.today()
+    if status in ("In Progress", "Completed") and not start_date:
+        start_val = today_val
+    elif start_date:
+        try:
+            start_val = datetime.strptime(str(start_date).split()[0], "%Y-%m-%d").date()
+        except Exception:
+            start_val = today_val
+    else:
+        start_val = None
+
+    if status == "Completed":
+        if not completion_date:
+            comp_val = today_val
+        else:
+            try:
+                comp_val = datetime.strptime(str(completion_date).split()[0], "%Y-%m-%d").date()
+            except Exception:
+                comp_val = today_val
+    else:
+        comp_val = None
+
+    if planned_completion_date:
+        try:
+            planned_val = datetime.strptime(str(planned_completion_date).split()[0], "%Y-%m-%d").date()
+        except Exception:
+            planned_val = None
+    else:
+        planned_val = None
+
     # Calculate status
-    tracking = get_tracking_status(status, planned_completion_date, completion_date)
-    
+    tracking = get_tracking_status(status, planned_val, comp_val)
+
     found_row = None
     for r in range(2, ws.max_row + 1):
         u = ws.cell(row=r, column=1).value
@@ -828,22 +870,6 @@ def save_progress(username, course_name, path, module_name, status, progress_per
         if u is not None and str(u).strip() == str(username).strip() and c == course_name and (p or "") == (path or "") and m == module_name:
             found_row = r
             break
-            
-    # Normalize inputs
-    if start_date:
-        start_val = datetime.strptime(start_date, "%Y-%m-%d").date()
-    else:
-        start_val = None
-        
-    if completion_date:
-        comp_val = datetime.strptime(completion_date, "%Y-%m-%d").date()
-    else:
-        comp_val = None
-        
-    if planned_completion_date:
-        planned_val = datetime.strptime(planned_completion_date, "%Y-%m-%d").date()
-    else:
-        planned_val = None
 
     u_str = str(username).strip()
     if found_row:

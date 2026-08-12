@@ -1052,7 +1052,28 @@ function setupEventHandlers() {
     const progPercentInput = document.getElementById("progPercent");
     const percentLabel = document.getElementById("percentLabel");
     progPercentInput.addEventListener("input", (e) => {
-        percentLabel.textContent = `${e.target.value}%`;
+        const val = parseInt(e.target.value) || 0;
+        percentLabel.textContent = `${val}%`;
+
+        const progStatusSelect = document.getElementById("progStatus");
+        const startDateInput = document.getElementById("progStartDate");
+        const compDateInput = document.getElementById("progCompDate");
+        const todayStr = new Date().toISOString().split("T")[0];
+
+        if (val === 100) {
+            if (progStatusSelect) progStatusSelect.value = "Completed";
+            if (startDateInput && !startDateInput.value) startDateInput.value = todayStr;
+            if (compDateInput && !compDateInput.value) compDateInput.value = todayStr;
+        } else if (val > 0) {
+            if (progStatusSelect && progStatusSelect.value === "Not Started") {
+                progStatusSelect.value = "In Progress";
+            }
+            if (startDateInput && !startDateInput.value) startDateInput.value = todayStr;
+            if (compDateInput) compDateInput.value = "";
+        } else if (val === 0) {
+            if (progStatusSelect) progStatusSelect.value = "Not Started";
+            if (compDateInput) compDateInput.value = "";
+        }
     });
 
     // Smart progress status change listener (Auto sets start_date, completion_date, and progress_percent)
@@ -1322,7 +1343,7 @@ function renderPersonalTab() {
                 <strong>${courseModule.module_name}</strong>
                 ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
             </td>
-            <td><span class="font-mono">${courseModule.duration}</span></td>
+            <td><span class="font-mono">${formatDuration(courseModule.duration, courseModule.duration_minutes)}</span></td>
             <td><span class="font-mono text-secondary">${plannedDate || t("not_set")}</span></td>
             <td>
                 <div class="prog-bar-cell">
@@ -1353,6 +1374,23 @@ function renderPersonalTab() {
 }
 
 // Helpers for badges
+function formatDuration(durationStr, durationMins) {
+    const mins = parseInt(durationMins) || 0;
+    if (mins <= 0) {
+        if (durationStr && durationStr !== "-" && durationStr.trim() !== "") return durationStr;
+        return "-";
+    }
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    if (hrs > 0 && remMins > 0) {
+        return `${hrs}h ${remMins}m`;
+    } else if (hrs > 0) {
+        return `${hrs}h 00m`;
+    } else {
+        return `${remMins}m`;
+    }
+}
+
 function getStatusBadge(status) {
     let cls = "badge-status-notstarted";
     let txt = t("status_not_started");
@@ -1703,8 +1741,8 @@ function renderTeamProgressTable() {
                             </thead>
                             <tbody>
                                 ${courseObj.records.map(p => {
-                                    const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
-                                    const durationText = matchCourse ? `${matchCourse.duration_minutes || 0}m` : '-';
+                                    const matchMod = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || "") && c.module_name === p.module_name);
+                                    const durationText = matchMod ? formatDuration(matchMod.duration, matchMod.duration_minutes) : (p.duration ? formatDuration(p.duration, p.duration_minutes) : '-');
                                     const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
                                     const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
                                     const safeCourse = p.course_name.replace(/'/g, "\\'");
