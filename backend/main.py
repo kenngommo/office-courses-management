@@ -16,7 +16,10 @@ from backend.db_manager import (
     save_progress,
     get_enrollments,
     save_enrollment,
-    delete_enrollment
+    delete_enrollment,
+    authenticate_user,
+    change_user_password,
+    reset_user_password
 )
 
 # Initialize sheet schema if not already present
@@ -34,6 +37,18 @@ app.add_middleware(
 )
 
 # --- Pydantic Schemas ---
+
+class LoginRequest(BaseModel):
+    user_or_email: str
+    password: str
+
+class ChangePasswordRequest(BaseModel):
+    username: str
+    old_password: str
+    new_password: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
 
 class ModuleInput(BaseModel):
     module_name: str
@@ -53,6 +68,7 @@ class EmployeeRequest(BaseModel):
     english_name: Optional[str] = ""
     role: str
     email: Optional[str] = ""
+    initial_password: Optional[str] = None
 
 class ProgressUpdateRequest(BaseModel):
     username: str
@@ -64,6 +80,31 @@ class ProgressUpdateRequest(BaseModel):
     start_date: Optional[str] = None          # YYYY-MM-DD
     completion_date: Optional[str] = None     # YYYY-MM-DD
     planned_completion_date: str              # YYYY-MM-DD
+
+# --- Auth Endpoints ---
+
+@app.post("/api/auth/login")
+def api_login(req: LoginRequest):
+    user = authenticate_user(req.user_or_email, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sai tên đăng nhập/email hoặc mật khẩu. Vui lòng kiểm tra lại.")
+    return {"status": "success", "user": user}
+
+@app.post("/api/auth/change-password")
+def api_change_password(req: ChangePasswordRequest):
+    if len(req.new_password.strip()) < 4:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 4 ký tự.")
+    success, message = change_user_password(req.username, req.old_password, req.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"status": "success", "message": message}
+
+@app.post("/api/auth/reset-password")
+def api_reset_password(req: ResetPasswordRequest):
+    success, message, temp_password = reset_user_password(req.email)
+    if not success:
+        raise HTTPException(status_code=404, detail=message)
+    return {"status": "success", "message": message, "temp_password": temp_password}
 
 # --- API Endpoints ---
 
@@ -105,7 +146,8 @@ def api_get_employees():
 @app.post("/api/employees")
 def api_add_employee(req: EmployeeRequest):
     try:
-        save_employee(req.username.strip(), req.fullname.strip(), req.role.strip(), (req.english_name or "").strip(), (req.email or "").strip())
+        init_pwd = req.initial_password.strip() if req.initial_password else None
+        save_employee(req.username.strip(), req.fullname.strip(), req.role.strip(), (req.english_name or "").strip(), (req.email or "").strip(), initial_password=init_pwd)
         return {"status": "success", "message": f"Saved employee: {req.username}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving employee: {str(e)}")

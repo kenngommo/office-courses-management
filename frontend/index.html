@@ -27,14 +27,44 @@
             </div>
             
             <div class="header-right">
-                <!-- User Simulator Dropdown -->
-                <div class="user-selector-container">
-                    <img id="topUserAvatar" class="user-avatar-top" src="" alt="Avatar">
-                    <select id="userSelector" class="user-select-dropdown">
-                        <!-- Populated dynamically via JS -->
-                    </select>
+                <!-- User Profile & Settings Menu -->
+                <div class="user-profile-menu" id="userProfileMenu">
+                    <button type="button" class="user-profile-btn" id="userProfileBtn">
+                        <img id="topUserAvatar" class="user-avatar-top" src="https://ui-avatars.com/api/?name=User" alt="Avatar">
+                        <div class="user-nav-text">
+                            <span class="user-nav-name" id="topUserName">Đang tải...</span>
+                            <span class="user-nav-role" id="topUserRole">Employee</span>
+                        </div>
+                        <span class="material-icons-round font-sm caret-icon">expand_more</span>
+                    </button>
+                    <div class="user-dropdown-menu glass" id="userDropdownMenu">
+                        <div class="dropdown-user-header">
+                            <strong id="dropdownFullName">Tên người dùng</strong>
+                            <small class="text-muted" id="dropdownEmail">user@areteepm.com</small>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Switch User Option (Manager / Super User Only) -->
+                        <div class="dropdown-item hidden" id="managerUserSwitcherItem">
+                            <label for="userSelector" class="font-xs text-muted mb-1 display-block">
+                                <span class="material-icons-round font-xs">sync_alt</span> Chuyển tài khoản (Manager)
+                            </label>
+                            <select id="userSelector" class="user-select-dropdown">
+                                <!-- Populated dynamically via JS -->
+                            </select>
+                        </div>
+                        <div class="dropdown-divider hidden" id="managerUserSwitcherDivider"></div>
+
+                        <button type="button" class="dropdown-item-btn" id="btnOpenChangePassword">
+                            <span class="material-icons-round font-sm">lock_reset</span> Đổi mật khẩu
+                        </button>
+                        <button type="button" class="dropdown-item-btn text-danger" id="btnLogout">
+                            <span class="material-icons-round font-sm">logout</span> Đăng xuất
+                        </button>
+                    </div>
                 </div>
-                <div class="theme-toggle" id="themeToggleBtn">
+
+                <div class="theme-toggle" id="themeToggleBtn" title="Chuyển đổi giao diện Sáng / Tối">
                     <span class="material-icons-round">light_mode</span>
                 </div>
             </div>
@@ -598,6 +628,108 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" id="btnCancelEnrollmentModal">Hủy</button>
                         <button type="submit" class="btn btn-primary">Xác nhận Đăng ký</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN SHIELD OVERLAY (BLOCKS CONTENT UNTIL LOGGED IN) -->
+    <div class="login-overlay-backdrop active" id="loginOverlay">
+        <div class="login-modal-box glass">
+            <div class="login-header">
+                <div class="login-brand">
+                    <span class="material-icons-round brand-icon">auto_stories</span>
+                    <h2>EPM Courses Hub</h2>
+                </div>
+                <p class="login-subtitle">Đăng nhập để xem lộ trình học và tiến độ đào tạo</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUserOrEmail">Tên đăng nhập hoặc Email</label>
+                    <div class="input-with-icon">
+                        <span class="material-icons-round font-sm input-icon">person</span>
+                        <input type="text" id="loginUserOrEmail" class="form-control" required placeholder="Ví dụ: Liam Le hoặc Lam.Le@AreteEPM.com">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Mật khẩu</label>
+                    <div class="input-with-icon">
+                        <span class="material-icons-round font-sm input-icon">lock</span>
+                        <input type="password" id="loginPassword" class="form-control" required placeholder="Nhập mật khẩu của bạn">
+                    </div>
+                </div>
+
+                <div id="loginErrorMsg" class="auth-error-msg hidden"></div>
+
+                <div class="login-actions flex-between-center">
+                    <button type="button" class="btn-link" id="btnOpenForgotPassword">Quên mật khẩu?</button>
+                    <button type="submit" class="btn btn-primary btn-login">
+                        <span class="material-icons-round font-sm">login</span> Đăng nhập
+                    </button>
+                </div>
+
+                <div class="login-footer-hint text-muted font-xs mt-3 text-center">
+                    <span class="material-icons-round font-xs" style="vertical-align: middle;">info</span> Mật khẩu ban đầu mặc định do Admin cấp: <code>EPM@2026</code>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: FORGOT PASSWORD -->
+    <div class="modal-backdrop" id="forgotPasswordModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Khôi phục mật khẩu</h3>
+                <span class="material-icons-round close-btn" id="closeForgotModal">close</span>
+            </div>
+            <div class="modal-body">
+                <p class="font-sm text-secondary mb-3">Nhập địa chỉ Email đã đăng ký trong hệ thống. Hệ thống sẽ xác nhận và khởi tạo lại mật khẩu tạm thời cho bạn.</p>
+                <form id="forgotPasswordForm">
+                    <div class="form-group">
+                        <label for="forgotEmail">Email đã đăng ký</label>
+                        <div class="input-with-icon">
+                            <span class="material-icons-round font-sm input-icon">email</span>
+                            <input type="email" id="forgotEmail" class="form-control" required placeholder="ví dụ: Wynn.Nguyen@AreteEPM.com">
+                        </div>
+                    </div>
+                    <div id="forgotMsg" class="auth-info-msg hidden"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelForgotModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Gửi yêu cầu Reset</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CHANGE PASSWORD (SETTINGS) -->
+    <div class="modal-backdrop" id="changePasswordModal">
+        <div class="modal-content glass narrow-modal">
+            <div class="modal-header">
+                <h3>Đổi mật khẩu tài khoản</h3>
+                <span class="material-icons-round close-btn" id="closeChangePwdModal">close</span>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="changeOldPassword">Mật khẩu hiện tại</label>
+                        <input type="password" id="changeOldPassword" class="form-control" required placeholder="Nhập mật khẩu cũ">
+                    </div>
+                    <div class="form-group">
+                        <label for="changeNewPassword">Mật khẩu mới</label>
+                        <input type="password" id="changeNewPassword" class="form-control" required placeholder="Tối thiểu 4 ký tự">
+                    </div>
+                    <div class="form-group">
+                        <label for="changeConfirmPassword">Xác nhận mật khẩu mới</label>
+                        <input type="password" id="changeConfirmPassword" class="form-control" required placeholder="Nhập lại mật khẩu mới">
+                    </div>
+                    <div id="changePwdMsg" class="auth-error-msg hidden"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="btnCancelChangePwdModal">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Đổi mật khẩu mới</button>
                     </div>
                 </form>
             </div>

@@ -65,20 +65,56 @@ const employeeForm = document.getElementById("employeeForm");
 const courseForm = document.getElementById("courseForm");
 const enrollmentForm = document.getElementById("enrollmentForm");
 
+// Auth Modals & Elements
+const loginOverlay = document.getElementById("loginOverlay");
+const loginForm = document.getElementById("loginForm");
+const loginErrorMsg = document.getElementById("loginErrorMsg");
+
+const forgotPasswordModal = document.getElementById("forgotPasswordModal");
+const forgotPasswordForm = document.getElementById("forgotPasswordForm");
+const forgotMsg = document.getElementById("forgotMsg");
+
+const changePasswordModal = document.getElementById("changePasswordModal");
+const changePasswordForm = document.getElementById("changePasswordForm");
+const changePwdMsg = document.getElementById("changePwdMsg");
+
+const userProfileBtn = document.getElementById("userProfileBtn");
+const userDropdownMenu = document.getElementById("userDropdownMenu");
+const btnOpenChangePassword = document.getElementById("btnOpenChangePassword");
+const btnLogout = document.getElementById("btnLogout");
+
 // INIT FUNCTION
 window.addEventListener("DOMContentLoaded", async () => {
     setupEventHandlers();
     await refreshData();
     
-    // Set initial active user (default to Super User if available)
-    if (state.users.length > 0) {
-        const defaultUser = state.users.find(u => u.role === "Super User") || 
-                            state.users.find(u => u.role === "Manager" || u.role === "Power User") || 
-                            state.users[0];
-        state.currentUser = defaultUser;
-        userSelector.value = state.currentUser.username;
-        onUserChanged();
+    // Check saved session in localStorage
+    const savedUserJson = localStorage.getItem("epm_user");
+    if (savedUserJson) {
+        try {
+            const savedUser = JSON.parse(savedUserJson);
+            const verifiedUser = state.users.find(u => u.username === savedUser.username);
+            if (verifiedUser) {
+                state.currentUser = verifiedUser;
+                userSelector.value = state.currentUser.username;
+                loginOverlay.classList.remove("active");
+                onUserChanged();
+                
+                if (state.currentUser.must_change_password) {
+                    setTimeout(() => {
+                        alert("Tài khoản của bạn cần đổi mật khẩu mới để đảm bảo an toàn.");
+                        showModal(changePasswordModal);
+                    }, 500);
+                }
+                return;
+            }
+        } catch (e) {
+            console.error("Error parsing saved user session:", e);
+        }
     }
+    
+    // If not logged in, keep login overlay active
+    loginOverlay.classList.add("active");
 });
 
 // Refresh all records from server
@@ -123,10 +159,179 @@ function renderSelectors() {
 
 // Global Event Listeners
 function setupEventHandlers() {
-    // User Switcher
+    // Auth Dropdown Toggle
+    if (userProfileBtn) {
+        userProfileBtn.onclick = (e) => {
+            e.stopPropagation();
+            userDropdownMenu.classList.toggle("show");
+        };
+    }
+    
+    document.addEventListener("click", (e) => {
+        if (userDropdownMenu && !userDropdownMenu.contains(e.target) && !userProfileBtn.contains(e.target)) {
+            userDropdownMenu.classList.remove("show");
+        }
+    });
+
+    // Login Form Submit
+    if (loginForm) {
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            loginErrorMsg.classList.add("hidden");
+            loginErrorMsg.textContent = "";
+
+            const userOrEmail = document.getElementById("loginUserOrEmail").value.trim();
+            const password = document.getElementById("loginPassword").value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_or_email: userOrEmail, password: password })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.user) {
+                    state.currentUser = data.user;
+                    localStorage.setItem("epm_user", JSON.stringify(data.user));
+                    loginOverlay.classList.remove("active");
+                    loginForm.reset();
+                    userSelector.value = state.currentUser.username;
+                    onUserChanged();
+
+                    if (data.user.must_change_password) {
+                        setTimeout(() => {
+                            alert("Đây là lần đầu đăng nhập (hoặc mật khẩu vừa được reset). Vui lòng đổi mật khẩu mới ngay.");
+                            showModal(changePasswordModal);
+                        }, 400);
+                    }
+                } else {
+                    loginErrorMsg.textContent = data.detail || "Đăng nhập thất bại. Vui lòng thử lại.";
+                    loginErrorMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                loginErrorMsg.textContent = "Không thể kết nối đến máy chủ API.";
+                loginErrorMsg.classList.remove("hidden");
+            }
+        };
+    }
+
+    // Forgot Password Trigger & Submit
+    document.getElementById("btnOpenForgotPassword").onclick = () => {
+        forgotPasswordForm.reset();
+        forgotMsg.classList.add("hidden");
+        showModal(forgotPasswordModal);
+    };
+
+    document.getElementById("closeForgotModal").onclick = () => hideModal(forgotPasswordModal);
+    document.getElementById("btnCancelForgotModal").onclick = () => hideModal(forgotPasswordModal);
+
+    if (forgotPasswordForm) {
+        forgotPasswordForm.onsubmit = async (e) => {
+            e.preventDefault();
+            forgotMsg.classList.add("hidden");
+            const emailVal = document.getElementById("forgotEmail").value.trim();
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: emailVal })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    forgotMsg.className = "auth-info-msg";
+                    forgotMsg.textContent = data.message;
+                    forgotMsg.classList.remove("hidden");
+                    await refreshData();
+                } else {
+                    forgotMsg.className = "auth-error-msg";
+                    forgotMsg.textContent = data.detail || "Lỗi khôi phục mật khẩu.";
+                    forgotMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                forgotMsg.className = "auth-error-msg";
+                forgotMsg.textContent = "Lỗi kết nối máy chủ.";
+                forgotMsg.classList.remove("hidden");
+            }
+        };
+    }
+
+    // Change Password Trigger & Submit
+    if (btnOpenChangePassword) {
+        btnOpenChangePassword.onclick = () => {
+            userDropdownMenu.classList.remove("show");
+            changePasswordForm.reset();
+            changePwdMsg.classList.add("hidden");
+            showModal(changePasswordModal);
+        };
+    }
+
+    document.getElementById("closeChangePwdModal").onclick = () => hideModal(changePasswordModal);
+    document.getElementById("btnCancelChangePwdModal").onclick = () => hideModal(changePasswordModal);
+
+    if (changePasswordForm) {
+        changePasswordForm.onsubmit = async (e) => {
+            e.preventDefault();
+            changePwdMsg.classList.add("hidden");
+
+            const oldPassword = document.getElementById("changeOldPassword").value;
+            const newPassword = document.getElementById("changeNewPassword").value;
+            const confirmPassword = document.getElementById("changeConfirmPassword").value;
+
+            if (newPassword !== confirmPassword) {
+                changePwdMsg.textContent = "Xác nhận mật khẩu mới không khớp.";
+                changePwdMsg.classList.remove("hidden");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/change-password`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        username: state.currentUser.username,
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert("Đổi mật khẩu thành công!");
+                    hideModal(changePasswordModal);
+                    if (state.currentUser) {
+                        state.currentUser.must_change_password = false;
+                        localStorage.setItem("epm_user", JSON.stringify(state.currentUser));
+                    }
+                    await refreshData();
+                } else {
+                    changePwdMsg.textContent = data.detail || "Đổi mật khẩu thất bại.";
+                    changePwdMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                changePwdMsg.textContent = "Lỗi kết nối máy chủ.";
+                changePwdMsg.classList.remove("hidden");
+            }
+        };
+    }
+
+    // Logout Button
+    if (btnLogout) {
+        btnLogout.onclick = () => {
+            userDropdownMenu.classList.remove("show");
+            localStorage.removeItem("epm_user");
+            state.currentUser = null;
+            loginOverlay.classList.add("active");
+        };
+    }
+
+    // User Switcher (for Manager role testing)
     userSelector.addEventListener("change", (e) => {
         const username = e.target.value;
         state.currentUser = state.users.find(u => u.username === username);
+        if (state.currentUser) {
+            localStorage.setItem("epm_user", JSON.stringify(state.currentUser));
+        }
         onUserChanged();
     });
 
@@ -317,20 +522,39 @@ function onUserChanged() {
     currentUserNameLabel.textContent = nameDisplay;
     currentUserRoleLabel.textContent = state.currentUser.role;
     
+    // Top Nav Header Profile Elements
+    const topUserName = document.getElementById("topUserName");
+    const topUserRole = document.getElementById("topUserRole");
+    const dropdownFullName = document.getElementById("dropdownFullName");
+    const dropdownEmail = document.getElementById("dropdownEmail");
+    const managerUserSwitcherItem = document.getElementById("managerUserSwitcherItem");
+    const managerUserSwitcherDivider = document.getElementById("managerUserSwitcherDivider");
+
+    if (topUserName) topUserName.textContent = nameDisplay;
+    if (topUserRole) topUserRole.textContent = state.currentUser.role;
+    if (dropdownFullName) dropdownFullName.textContent = state.currentUser.fullname;
+    if (dropdownEmail) dropdownEmail.textContent = state.currentUser.email || "No email registered";
+    
     // Update Avatar Images
     const topAvatar = document.getElementById("topUserAvatar");
     const personalAvatar = document.getElementById("personalAvatarImg");
     if (topAvatar && state.currentUser.avatar_url) topAvatar.src = state.currentUser.avatar_url;
     if (personalAvatar && state.currentUser.avatar_url) personalAvatar.src = state.currentUser.avatar_url;
     
-    // Check Authorization & Sidebar Visibility
-    if (state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User") {
+    // Check Authorization & Sidebar/Header Visibility
+    const isManager = state.currentUser.role === "Manager" || state.currentUser.role === "Power User" || state.currentUser.role === "Super User";
+    if (isManager) {
         appSidebar.classList.remove("hidden");
         tabManagerLink.classList.remove("hidden");
+        if (managerUserSwitcherItem) managerUserSwitcherItem.classList.remove("hidden");
+        if (managerUserSwitcherDivider) managerUserSwitcherDivider.classList.remove("hidden");
     } else {
-        // Normal User (Employee): Hide Sidebar completely for a clean, distraction-free full-width dashboard
+        // Normal User (Employee): Hide Sidebar and Manager User Switcher for a clean experience
         appSidebar.classList.add("hidden");
         tabManagerLink.classList.add("hidden");
+        if (managerUserSwitcherItem) managerUserSwitcherItem.classList.add("hidden");
+        if (managerUserSwitcherDivider) managerUserSwitcherDivider.classList.add("hidden");
+        
         // Force navigate to personal progress if in Manager panel
         if (managerTab.classList.contains("active")) {
             tabEmployeeLink.click();
@@ -484,11 +708,18 @@ function renderPersonalTab() {
         const startDate = userModuleProg ? userModuleProg.start_date : "";
         const compDate = userModuleProg ? userModuleProg.completion_date : "";
         
+        const isExamMod = /1z0-|exam|certification|professional/i.test(courseModule.module_name);
+        const modIconName = isExamMod ? 'assignment_turned_in' : 'play_circle';
+        
         tr.innerHTML = `
             <td><strong>${courseModule.plan}</strong></td>
             <td>${courseModule.course_name}</td>
             <td><span class="text-secondary">${courseModule.path || "-"}</span></td>
-            <td>${courseModule.module_name}</td>
+            <td>
+                <span class="material-icons-round font-sm ${isExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isExamMod ? 'Bài thi chứng chỉ (Ratio 1.0x)' : 'Bài học nội dung'}">${modIconName}</span>
+                <strong>${courseModule.module_name}</strong>
+                ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
+            </td>
             <td><span class="font-mono">${courseModule.duration}</span></td>
             <td><span class="font-mono text-secondary">${plannedDate || "Chưa thiết lập"}</span></td>
             <td>
@@ -647,6 +878,9 @@ function renderTeamProgressTable() {
         
         const tr = document.createElement("tr");
         const safeUsername = p.username.replace(/'/g, "\\'");
+        const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
+        const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
+
         tr.innerHTML = `
             <td>
                 <div class="user-cell-with-avatar">
@@ -659,7 +893,11 @@ function renderTeamProgressTable() {
             </td>
             <td>${p.course_name}</td>
             <td>${p.path || "-"}</td>
-            <td>${p.module_name}</td>
+            <td>
+                <span class="material-icons-round font-sm ${isTeamExamMod ? 'text-warning' : 'text-primary'}" style="vertical-align: middle; margin-right: 4px;" title="${isTeamExamMod ? 'Bài thi chứng chỉ (Ratio 1.0x)' : 'Bài học nội dung'}">${teamModIcon}</span>
+                <strong>${p.module_name}</strong>
+                ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
+            </td>
             <td><span class="badge ${p.status === 'Completed' ? 'badge-status-completed' : p.status === 'In Progress' ? 'badge-status-inprogress' : 'badge-status-notstarted'}">${p.status}</span></td>
             <td><span class="font-mono text-secondary">${p.planned_completion_date}</span></td>
             <td>
@@ -903,6 +1141,13 @@ function renderCourseMgmtTable() {
             
             const safeCourseName = courseObj.course_name.replace(/'/g, "\\'");
             
+            const examCount = courseObj.modules.filter(m => /1z0-|exam|certification|professional/i.test(m.module_name)).length;
+            const regCount = courseObj.modules.length - examCount;
+            let modulesStatText = `<strong>${courseObj.modules.length}</strong> modules`;
+            if (examCount > 0) {
+                modulesStatText = `<strong>${regCount}</strong> modules, <strong>${examCount}</strong> exams`;
+            }
+            
             // Level 2 Course HTML with ">" module toggle button
             courseCard.innerHTML = `
                 <div class="level2-header" onclick="toggleLevel2Modules('${courseCardId}', event)">
@@ -918,7 +1163,7 @@ function renderCourseMgmtTable() {
                     <div class="level2-right">
                         <div class="course-stat-item">
                             <span class="material-icons-round">grid_view</span>
-                            <span><strong>${courseObj.modules.length}</strong> modules</span>
+                            <span>${modulesStatText}</span>
                         </div>
                         <div class="course-stat-item">
                             <span class="material-icons-round">schedule</span>
@@ -941,19 +1186,30 @@ function renderCourseMgmtTable() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${courseObj.modules.map((m, mIdx) => `
-                                <tr>
-                                    <td class="font-mono text-muted">${mIdx + 1}</td>
-                                    <td class="mod-name-cell"><strong>${m.module_name}</strong></td>
-                                    <td><span class="badge-dur">${m.duration || '-'}</span></td>
-                                    <td class="font-mono">${m.duration_minutes} phút</td>
-                                    <td>
-                                        <span class="${m.queue ? 'badge-queue-active' : 'badge-queue-disabled'}">
-                                            ${m.queue ? 'Trong hàng đợi' : 'Tạm hoãn'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
+                            ${courseObj.modules.map((m, mIdx) => {
+                                const isExam = /1z0-|exam|certification|professional/i.test(m.module_name);
+                                const iconName = isExam ? 'assignment_turned_in' : 'play_circle';
+                                const badgeHtml = isExam 
+                                    ? `<span class="badge-type-exam"><span class="material-icons-round font-xs">verified</span> Exam</span>`
+                                    : `<span class="badge-type-course"><span class="material-icons-round font-xs">play_circle</span> Course</span>`;
+                                return `
+                                    <tr>
+                                        <td class="font-mono text-muted">${mIdx + 1}</td>
+                                        <td class="mod-name-cell">
+                                            <span class="material-icons-round mod-type-icon ${isExam ? 'exam-icon' : 'course-icon'}" title="${isExam ? 'Bài thi chứng chỉ (Fixed ratio 1.0x)' : 'Bài học (Nhân hệ số ratio)'}">${iconName}</span>
+                                            <strong>${m.module_name}</strong>
+                                            <span class="ml-2">${badgeHtml}</span>
+                                        </td>
+                                        <td><span class="badge-dur">${m.duration || '-'}</span></td>
+                                        <td class="font-mono">${m.duration_minutes} phút</td>
+                                        <td>
+                                            <span class="${m.queue ? 'badge-queue-active' : 'badge-queue-disabled'}">
+                                                ${m.queue ? 'Trong hàng đợi' : 'Tạm hoãn'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -1075,17 +1331,30 @@ function getSelectedTargetName(targetType) {
 
 function getTargetVideoMinutes(targetType, targetName) {
     let totalMins = 0;
+    let regularMins = 0;
+    let examMins = 0;
     let moduleCount = 0;
+    let matching = [];
+    
     if (targetType === "plan") {
-        const matching = state.courses.filter(c => c.plan === targetName);
-        totalMins = matching.reduce((sum, c) => sum + (c.duration_minutes || 0), 0);
-        moduleCount = matching.length;
+        matching = state.courses.filter(c => c.plan === targetName);
     } else {
-        const matching = state.courses.filter(c => c.course_name === targetName);
-        totalMins = matching.reduce((sum, c) => sum + (c.duration_minutes || 0), 0);
-        moduleCount = matching.length;
+        matching = state.courses.filter(c => c.course_name === targetName);
     }
-    return { totalMins, moduleCount };
+    
+    moduleCount = matching.length;
+    matching.forEach(c => {
+        const dm = c.duration_minutes || 0;
+        totalMins += dm;
+        const isExam = /1z0-|exam|certification|professional/i.test(c.module_name);
+        if (isExam) {
+            examMins += dm;
+        } else {
+            regularMins += dm;
+        }
+    });
+    
+    return { totalMins, regularMins, examMins, moduleCount };
 }
 
 function countWorkingDaysBetween(startDateStr, endDateStr, workweekType) {
@@ -1114,7 +1383,7 @@ function countWorkingDaysBetween(startDateStr, endDateStr, workweekType) {
     return Math.max(1, count);
 }
 
-function updateSummaryBox(totalMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal) {
+function updateSummaryBox(totalMins, regularMins, examMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal) {
     const summaryEl = document.getElementById("enrCalcSummary");
     if (!summaryEl) return;
     
@@ -1124,11 +1393,15 @@ function updateSummaryBox(totalMins, moduleCount, ratioVal, adjustedMins, requir
     }
     
     const adjustedHours = adjustedMins / 60.0;
+    const examNote = examMins > 0 
+        ? ` <span class="text-warning font-xs" title="Thời gian bài thi được giữ cố định (ratio 1.0x)">(Cố định exam 1.0x: ${formatHoursMinutes(examMins)})</span>` 
+        : '';
+
     summaryEl.innerHTML = `
         <div class="calc-info-box font-sm glass">
             <div class="calc-info-row">
-                <span><span class="material-icons-round font-xs">videocam</span> Video gốc: <strong>${formatHoursMinutes(totalMins)}</strong> (${moduleCount} modules)</span>
-                <span><span class="material-icons-round font-xs">tune</span> Hệ số Ratio: <strong class="text-primary">${ratioVal}x</strong></span>
+                <span><span class="material-icons-round font-xs">videocam</span> Video gốc: <strong>${formatHoursMinutes(totalMins)}</strong> (${moduleCount} mục)${examNote}</span>
+                <span><span class="material-icons-round font-xs">tune</span> Ratio khóa học: <strong class="text-primary">${ratioVal}x</strong></span>
             </div>
             <div class="calc-info-row mt-1">
                 <span><span class="material-icons-round font-xs">timer</span> Thời lượng thực tế: <strong class="text-success">${formatHoursMinutes(adjustedMins)} (${adjustedHours.toFixed(1)}h)</strong></span>
@@ -1151,17 +1424,18 @@ function recalculateEndDateFromRatio() {
         const workweekType = parseInt(document.getElementById("enrWorkweek").value) || 5;
 
         if (!startDateVal || !targetName) {
-            updateSummaryBox(0, 0, 0, 0, 0, 0);
+            updateSummaryBox(0, 0, 0, 0, 0, 0, 0, 0);
             return;
         }
 
-        const { totalMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
+        const { totalMins, regularMins, examMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
         if (totalMins <= 0) {
-            updateSummaryBox(0, moduleCount, ratioVal, 0, 0, dailyHoursVal);
+            updateSummaryBox(0, 0, 0, moduleCount, ratioVal, 0, 0, dailyHoursVal);
             return;
         }
 
-        const adjustedMins = Math.round(totalMins * ratioVal);
+        // Ratio is ONLY applied to regular course modules; exams stay fixed at 1.0x ratio
+        const adjustedMins = Math.round(regularMins * ratioVal) + examMins;
         const adjustedHours = adjustedMins / 60.0;
         const requiredDays = Math.max(1, Math.ceil(adjustedHours / dailyHoursVal));
 
@@ -1185,13 +1459,13 @@ function recalculateEndDateFromRatio() {
         }
 
         document.getElementById("enrEndDate").value = curr.toISOString().split("T")[0];
-        updateSummaryBox(totalMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal);
+        updateSummaryBox(totalMins, regularMins, examMins, moduleCount, ratioVal, adjustedMins, requiredDays, dailyHoursVal);
     } finally {
         isSyncingEnrollment = false;
     }
 }
 
-// 2. DIRECTION B: When End Date changes -> Calculate Ratio
+// 2. DIRECTION B: When End Date changes -> Calculate Ratio for regular courses
 function recalculateRatioFromEndDate() {
     if (isSyncingEnrollment) return;
     isSyncingEnrollment = true;
@@ -1205,21 +1479,23 @@ function recalculateRatioFromEndDate() {
 
         if (!startDateVal || !endDateVal || !targetName) return;
 
-        const { totalMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
+        const { totalMins, regularMins, examMins, moduleCount } = getTargetVideoMinutes(targetType, targetName);
         if (totalMins <= 0) return;
 
         const actualWorkingDays = countWorkingDaysBetween(startDateVal, endDateVal, workweekType);
-        const totalAvailableStudyHours = actualWorkingDays * dailyHoursVal;
-        const rawVideoHours = totalMins / 60.0;
+        const totalAvailableStudyMins = actualWorkingDays * dailyHoursVal * 60.0;
 
-        // Calculate Ratio = available study hours / raw video hours
-        let computedRatio = totalAvailableStudyHours / rawVideoHours;
+        // Subtract fixed exam minutes from total available minutes
+        const availableForRegularMins = Math.max(0, totalAvailableStudyMins - examMins);
+
+        // Compute ratio for regular courses
+        let computedRatio = regularMins > 0 ? (availableForRegularMins / regularMins) : 1.0;
         computedRatio = Math.max(0.1, Math.round(computedRatio * 10) / 10);
 
         document.getElementById("enrRatio").value = computedRatio;
 
-        const adjustedMins = Math.round(totalMins * computedRatio);
-        updateSummaryBox(totalMins, moduleCount, computedRatio, adjustedMins, actualWorkingDays, dailyHoursVal);
+        const adjustedMins = Math.round(regularMins * computedRatio) + examMins;
+        updateSummaryBox(totalMins, regularMins, examMins, moduleCount, computedRatio, adjustedMins, actualWorkingDays, dailyHoursVal);
     } finally {
         isSyncingEnrollment = false;
     }

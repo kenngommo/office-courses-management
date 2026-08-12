@@ -28,9 +28,31 @@ def init_db():
     # 2. Check Employees sheet
     if "Danh sách nhân viên" not in wb.sheetnames:
         ws = wb.create_sheet("Danh sách nhân viên")
-        headers = ['Username', 'Full Name', 'English Name', 'Role']
+        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword']
         ws.append(headers)
         dirty = True
+    else:
+        ws = wb["Danh sách nhân viên"]
+        headers = ['Username', 'Full Name', 'English Name', 'Role', 'Email', 'PasswordHash', 'MustChangePassword']
+        for col_idx, h in enumerate(headers, 1):
+            if ws.cell(row=1, column=col_idx).value != h:
+                ws.cell(row=1, column=col_idx).value = h
+                dirty = True
+        
+        # Populate initial hashed passwords for existing employees if empty
+        default_pwd_hash = hash_password(DEFAULT_INITIAL_PASSWORD)
+        for r in range(2, ws.max_row + 1):
+            u_val = ws.cell(row=r, column=1).value
+            pwd_val = ws.cell(row=r, column=6).value
+            must_change = ws.cell(row=r, column=7).value
+            if u_val is not None and str(u_val).strip() != "":
+                if not pwd_val:
+                    ws.cell(row=r, column=6).value = default_pwd_hash
+                    ws.cell(row=r, column=7).value = True
+                    dirty = True
+                elif must_change is None:
+                    ws.cell(row=r, column=7).value = False
+                    dirty = True
 
     # 3. Check Progress sheet
     if "Tiến độ học tập" not in wb.sheetnames:
@@ -167,6 +189,28 @@ def delete_course(course_name):
     wb.close()
 
 import hashlib
+import hmac
+
+DEFAULT_INITIAL_PASSWORD = "EPM@2026"
+
+def hash_password(password: str, salt: str = None) -> str:
+    """Hash password using PBKDF2_HMAC SHA256."""
+    if not password:
+        password = DEFAULT_INITIAL_PASSWORD
+    if not salt:
+        salt = os.urandom(16).hex()
+    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return f"{salt}${key.hex()}"
+
+def verify_password(stored_password_hash: str, password_candidate: str) -> bool:
+    """Verify candidate password against stored PBKDF2 hash."""
+    if not stored_password_hash:
+        return False
+    if '$' not in stored_password_hash:
+        return stored_password_hash == password_candidate
+    salt, hashed_hex = stored_password_hash.split('$', 1)
+    candidate_hash = hashlib.pbkdf2_hmac('sha256', password_candidate.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
+    return hmac.compare_digest(candidate_hash, hashed_hex)
 
 def get_avatar_url(name: str, email: str = "") -> str:
     """Generate high-quality avatar URL using UI-Avatars / Gravatar."""
@@ -197,6 +241,7 @@ def get_employees():
         english_name = ws.cell(row=r, column=3).value
         role = ws.cell(row=r, column=4).value
         email = ws.cell(row=r, column=5).value
+        must_change = ws.cell(row=r, column=7).value
             
         if username is not None and str(username).strip() != "":
             fn = str(fullname).strip() if fullname else ""
@@ -209,12 +254,13 @@ def get_employees():
                 "english_name": en,
                 "role": str(role).strip() if role else "Employee",
                 "email": em,
+                "must_change_password": bool(must_change),
                 "avatar_url": get_avatar_url(name_for_avatar, em)
             })
     wb.close()
     return employees
 
-def save_employee(username, fullname, role, english_name="", email=""):
+def save_employee(username, fullname, role, english_name="", email="", initial_password=None):
     """Add or update an employee."""
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -225,6 +271,8 @@ def save_employee(username, fullname, role, english_name="", email=""):
     ws.cell(row=1, column=3).value = 'English Name'
     ws.cell(row=1, column=4).value = 'Role'
     ws.cell(row=1, column=5).value = 'Email'
+    ws.cell(row=1, column=6).value = 'PasswordHash'
+    ws.cell(row=1, column=7).value = 'MustChangePassword'
         
     found_row = None
     u_str = str(username).strip()
@@ -234,16 +282,150 @@ def save_employee(username, fullname, role, english_name="", email=""):
             found_row = r
             break
             
+    pwd_to_use = initial_password if initial_password else DEFAULT_INITIAL_PASSWORD
+    pwd_hash = hash_password(pwd_to_use)
+    
     if found_row:
         ws.cell(row=found_row, column=2).value = fullname
         ws.cell(row=found_row, column=3).value = english_name
         ws.cell(row=found_row, column=4).value = role
         ws.cell(row=found_row, column=5).value = email
+        if not ws.cell(row=found_row, column=6).value:
+            ws.cell(row=found_row, column=6).value = pwd_hash
+            ws.cell(row=found_row, column=7).value = True
     else:
-        ws.append([u_str, fullname, english_name, role, email])
+        ws.append([u_str, fullname, english_name, role, email, pwd_hash, True])
         
     wb.save(EXCEL_FILE)
     wb.close()
+
+def authenticate_user(user_or_email: str, password_candidate: str):
+    """Authenticate user by username or email and password."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
+    ws = wb["Danh sách nhân viên"]
+    
+    query = str(user_or_email).strip().lower()
+    if not query:
+        wb.close()
+        return None
+        
+    found = None
+    for r in range(2, ws.max_row + 1):
+        u = str(ws.cell(row=r, column=1).value or "").strip()
+        fn = str(ws.cell(row=r, column=2).value or "").strip()
+        en = str(ws.cell(row=r, column=3).value or "").strip()
+        role = str(ws.cell(row=r, column=4).value or "Employee").strip()
+        em = str(ws.cell(row=r, column=5).value or "").strip()
+        pwd_hash = str(ws.cell(row=r, column=6).value or "").strip()
+        must_change = ws.cell(row=r, column=7).value
+        
+        if u.lower() == query or (em and em.lower() == query):
+            found = {
+                "row": r,
+                "username": u,
+                "fullname": fn,
+                "english_name": en,
+                "role": role,
+                "email": em,
+                "password_hash": pwd_hash,
+                "must_change_password": bool(must_change)
+            }
+            break
+            
+    wb.close()
+    if not found:
+        return None
+        
+    if verify_password(found["password_hash"], password_candidate):
+        name_for_avatar = found["english_name"] if found["english_name"] else found["fullname"]
+        return {
+            "username": found["username"],
+            "fullname": found["fullname"],
+            "english_name": found["english_name"],
+            "role": found["role"],
+            "email": found["email"],
+            "must_change_password": found["must_change_password"],
+            "avatar_url": get_avatar_url(name_for_avatar, found["email"])
+        }
+    return None
+
+def change_user_password(username: str, old_password: str, new_password: str):
+    """Change user password after verifying current password."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách nhân viên"]
+    
+    u_target = str(username).strip().lower()
+    found_row = None
+    stored_hash = ""
+    for r in range(2, ws.max_row + 1):
+        u = str(ws.cell(row=r, column=1).value or "").strip()
+        if u.lower() == u_target:
+            found_row = r
+            stored_hash = str(ws.cell(row=r, column=6).value or "").strip()
+            break
+            
+    if not found_row:
+        wb.close()
+        return False, "Tài khoản không tồn tại."
+        
+    if not verify_password(stored_hash, old_password):
+        wb.close()
+        return False, "Mật khẩu hiện tại không đúng."
+        
+    new_hash = hash_password(new_password)
+    ws.cell(row=found_row, column=6).value = new_hash
+    ws.cell(row=found_row, column=7).value = False
+    
+    wb.save(EXCEL_FILE)
+    wb.close()
+    return True, "Đổi mật khẩu thành công."
+
+def reset_user_password(email: str):
+    """Reset user password by registered email and send password reset email via SMTP."""
+    init_db()
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb["Danh sách nhân viên"]
+    
+    em_target = str(email).strip().lower()
+    found_row = None
+    found_username = ""
+    found_email = ""
+    for r in range(2, ws.max_row + 1):
+        em = str(ws.cell(row=r, column=5).value or "").strip()
+        if em and em.lower() == em_target:
+            found_row = r
+            found_username = str(ws.cell(row=r, column=1).value or "").strip()
+            found_email = em
+            break
+            
+    if not found_row:
+        wb.close()
+        return False, "Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại.", None
+        
+    import secrets
+    random_pin = secrets.randbelow(899999) + 100000
+    temp_password = f"EPM{random_pin}"
+    temp_hash = hash_password(temp_password)
+    
+    ws.cell(row=found_row, column=6).value = temp_hash
+    ws.cell(row=found_row, column=7).value = True
+    
+    wb.save(EXCEL_FILE)
+    wb.close()
+    
+    # Send reset email via SMTP
+    try:
+        from backend.email_service import send_password_reset_email
+        sent_ok, email_msg = send_password_reset_email(found_email, found_username, temp_password)
+        if sent_ok:
+            return True, f"Mật khẩu mới đã được tự động gửi đến hòm thư {found_email}. Vui lòng kiểm tra hộp thư (hoặc thư rác) để đăng nhập và đổi mật khẩu mới.", temp_password
+        else:
+            # If SMTP_PASSWORD environment variable is not configured yet, notify user & fallback to temp password info
+            return True, f"Đã reset mật khẩu tài khoản thành công!\n({email_msg})\nMật khẩu tạm thời của bạn là: {temp_password}", temp_password
+    except Exception as ex:
+        return True, f"Mật khẩu của tài khoản '{found_username}' đã được reset về mật khẩu tạm thời: {temp_password}. Vui lòng đăng nhập và đổi mật khẩu mới.", temp_password
 
 def delete_employee(username):
     """Delete employee by username."""
@@ -545,19 +727,25 @@ def save_enrollment(username, target_type, target_name, start_date, end_date, wo
         working_days = [end_date]
         N = 1
         
-    total_mins = sum(m["duration_minutes"] for m in target_modules)
-    if total_mins == 0:
-        total_mins = len(target_modules)
-        for m in target_modules:
-            m["duration_minutes"] = 1
-            
-    cum_mins = 0
+    import re
+    def get_effective_mins(m, r_val):
+        m_name = m.get("module_name", "")
+        is_exam = bool(re.search(r'1z0-|exam|certification|professional', m_name, re.I))
+        dm = m.get("duration_minutes", 0)
+        return dm if is_exam else dm * r_val
+
+    r_factor = float(ratio)
+    total_effective_mins = sum(get_effective_mins(m, r_factor) for m in target_modules)
+    if total_effective_mins == 0:
+        total_effective_mins = len(target_modules)
+        
+    cum_effective_mins = 0
     progress_sheet = openpyxl.load_workbook(EXCEL_FILE)
     p_ws = progress_sheet["Tiến độ học tập"]
     
     for m in target_modules:
-        cum_mins += m["duration_minutes"]
-        weight = cum_mins / total_mins
+        cum_effective_mins += get_effective_mins(m, r_factor)
+        weight = cum_effective_mins / total_effective_mins
         idx = int(round(weight * (N - 1)))
         assigned_date = working_days[idx]
         
