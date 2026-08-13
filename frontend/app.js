@@ -272,7 +272,7 @@ function t(key) {
     return (i18n[lang] && i18n[lang][key]) || (i18n["en"] && i18n["en"][key]) || (i18n["vi"] && i18n["vi"][key]) || key;
 }
 
-function updateLanguageUI() {
+function updateLanguageUI({ rerenderDashboard = true } = {}) {
     const currentLangCode = document.getElementById("currentLangCode");
     if (currentLangCode) {
         currentLangCode.textContent = state.lang === "en" ? "EN" : "VN";
@@ -292,9 +292,9 @@ function updateLanguageUI() {
         }
     });
 
-    if (state.loggedInUser) {
+    if (state.loggedInUser && rerenderDashboard) {
         renderSelectors();
-        renderManagerDashboard();
+        renderActiveDashboard();
     }
 }
 
@@ -1830,7 +1830,9 @@ window.openProgressUpdateModal = function(username, courseName, path, moduleName
         elPlanned.value = planned;
     }
     
-    updateLanguageUI();
+    // Only translate the existing modal here. Re-rendering the dashboard while
+    // handling its button click is unnecessary and can replace the clicked DOM.
+    updateLanguageUI({ rerenderDashboard: false });
     const pModal = document.getElementById("progressModal");
     if (pModal) showModal(pModal);
 };
