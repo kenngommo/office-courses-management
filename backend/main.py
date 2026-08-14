@@ -42,7 +42,8 @@ app = FastAPI(title="Courses Management API V5")
 @app.middleware("http")
 async def backup_after_data_change(request, call_next):
     response = await call_next(request)
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and response.status_code < 400:
+    is_data_change = request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path != "/api/auth/login"
+    if is_data_change and response.status_code < 400:
         create_backup(f"{request.method.lower()}-{request.url.path.strip('/').replace('/', '-')}")
     return response
 

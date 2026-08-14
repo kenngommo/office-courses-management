@@ -18,3 +18,20 @@ persistent directory.
 
 Use `GET /api/system/storage` to verify the active data location and backup
 count after deployment.
+
+## Safe course synchronization
+
+Compare local course data with production without writing anything:
+
+```
+python scripts/sync_courses.py
+```
+
+Apply only Active/Unactive and duration differences:
+
+```
+python scripts/sync_courses.py --apply
+```
+
+The command refuses to add or delete modules automatically when identities
+differ, protecting employee progress from an accidental catalog replacement.
