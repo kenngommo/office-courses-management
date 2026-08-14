@@ -1019,10 +1019,41 @@ def get_tracking_status(status, planned_date_str, completion_date_str, start_dat
                 else:
                     return "Too slow"
 
+def _build_enrollment_scopes(courses, enrollments):
+    """Return the exact modules each user may see/update from live enrollments."""
+    scopes = {}
+    for enrollment in enrollments:
+        user = str(enrollment.get("username") or "").strip()
+        if not user:
+            continue
+        scope = scopes.setdefault(user, {"module_ids": set(), "module_keys": set(), "enrollment_ids": set()})
+        if enrollment.get("enrollment_id"):
+            scope["enrollment_ids"].add(enrollment["enrollment_id"])
+        target_type = str(enrollment.get("target_type") or "").lower()
+        target_id = str(enrollment.get("target_id") or "").strip()
+        target_name = str(enrollment.get("target_name") or enrollment.get("course_name") or "").strip()
+        for course in courses:
+            if course.get("queue") is False:
+                continue
+            if target_type == "plan":
+                matches = (target_id and target_id == course.get("plan_id")) or (not target_id and target_name == course.get("plan"))
+            elif target_type == "course":
+                matches = (target_id and target_id == course.get("course_id")) or (not target_id and target_name == course.get("course_name"))
+            else:
+                matches = False
+            if matches:
+                if course.get("module_id"):
+                    scope["module_ids"].add(course["module_id"])
+                scope["module_keys"].add((course.get("course_name") or "", course.get("path") or "", course.get("module_name") or ""))
+    return scopes
+
+
 def get_progress(username=None):
     """Retrieve learning progress for one or all users."""
     init_db()
-    module_by_id = {m.get('module_id'): m for m in get_courses() if m.get('module_id')}
+    courses = get_courses()
+    module_by_id = {m.get('module_id'): m for m in courses if m.get('module_id')}
+    enrollment_scopes = _build_enrollment_scopes(courses, get_enrollments(username))
     wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
     ws = wb["Tiến độ học tập"]
     progress_list = []
@@ -1043,7 +1074,15 @@ def get_progress(username=None):
         enrollment_id = ws.cell(row=r, column=13).value
         excluded = bool(ws.cell(row=r, column=14).value)
         
-        if u is not None and not excluded and (username is None or str(u).strip() == str(username).strip()):
+        user_key = str(u).strip() if u is not None else ""
+        scope = enrollment_scopes.get(user_key)
+        module_key = (course or "", path or "", module or "")
+        is_enrolled = bool(scope) and (
+            (enrollment_id and enrollment_id in scope["enrollment_ids"] and (not module_id or module_id in scope["module_ids"]))
+            or (module_id and module_id in scope["module_ids"])
+            or module_key in scope["module_keys"]
+        )
+        if u is not None and not excluded and is_enrolled and (username is None or user_key == str(username).strip()):
             # Format dates to string
             start_str = start.strftime("%Y-%m-%d") if isinstance(start, (datetime, date)) else str(start) if start else ""
             comp_str = comp.strftime("%Y-%m-%d") if isinstance(comp, (datetime, date)) else str(comp) if comp else ""
@@ -1076,6 +1115,11 @@ def get_progress(username=None):
 def save_progress(username, course_name, path, module_name, status, progress_percent, start_date, completion_date, planned_completion_date, module_id=None):
     """Save or update student module progress."""
     init_db()
+    courses = get_courses()
+    scope = _build_enrollment_scopes(courses, get_enrollments(username)).get(str(username).strip())
+    module_key = (course_name or "", path or "", module_name or "")
+    if not scope or not ((module_id and module_id in scope["module_ids"]) or module_key in scope["module_keys"]):
+        raise ValueError("No Course assigned. Register the user before updating progress.")
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Tiến độ học tập"]
     

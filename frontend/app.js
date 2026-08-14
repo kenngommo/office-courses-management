@@ -1235,9 +1235,9 @@ function hideModal(modalEl) {
     modalEl.classList.remove("show");
 }
 
-// Helper: Get all courses matching user's enrollments or progress history
+// Helper: Get only courses explicitly assigned through enrollment.
 function getUserEnrolledCourses(username) {
-    if (!username) return state.courses.filter(c => c.queue !== false);
+    if (!username) return [];
     
     // Find all enrollment records for this username
     const userEnrs = state.enrollments.filter(e => e.username === username);
@@ -1259,8 +1259,7 @@ function getUserEnrolledCourses(username) {
         });
     }
 
-    // Default: If no explicit enrollment restrictions exist for this user, give access to all courses in curriculum
-    return state.courses.filter(c => c.queue !== false);
+    return [];
 }
 
 // Render Dashboard Data based on selected user
@@ -1395,7 +1394,7 @@ function renderPersonalTab() {
         personalHierarchyContainer.innerHTML = `
             <div class="glass p-4 text-center text-muted">
                 <span class="material-icons-round font-lg display-block mb-2">assignment_late</span>
-                <span>${state.lang === 'en' ? 'No course enrolled yet. Please contact your Manager to register your learning path.' : 'Chưa được đăng ký học khóa học nào. Vui lòng liên hệ Quản lý (Manager) để đăng ký lộ trình học.'}</span>
+                <span>${state.lang === 'en' ? 'No Course assigned' : 'Chưa được gán khóa học (No Course assigned)'}</span>
             </div>
         `;
         return;
@@ -1948,23 +1947,23 @@ function renderTeamProgressTable() {
 
     teamHierarchyContainer.innerHTML = "";
 
-    if (state.progress.length === 0) {
-        teamHierarchyContainer.innerHTML = `
-            <div class="glass p-4 text-center text-muted">
-                <span class="material-icons-round font-lg display-block mb-2">assignment_late</span>
-                <span>${state.lang === 'en' ? 'No employee progress records found.' : 'Chưa có bản ghi tiến độ nào của nhân viên.'}</span>
-            </div>
-        `;
-        return;
-    }
-
     // Group only the effective Active curriculum assigned to each employee.
     // Inactive template modules remain available in management/history, but do
     // not count toward the employee's current course/module totals.
     const userMap = {};
     const effectiveModuleIdsByUser = new Map();
     state.users.forEach(user => {
-        effectiveModuleIdsByUser.set(user.username, new Set(getUserEnrolledCourses(user.username).map(m => m.module_id).filter(Boolean)));
+        const enrolledCourses = getUserEnrolledCourses(user.username);
+        effectiveModuleIdsByUser.set(user.username, new Set(enrolledCourses.map(m => m.module_id).filter(Boolean)));
+        userMap[user.username] = {
+            username: user.username,
+            fullname: user.english_name ? `${user.fullname} (${user.english_name})` : user.fullname,
+            avatar_url: user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=3b82f6&color=fff&bold=true`,
+            hasEnrollment: state.enrollments.some(e => e.username === user.username),
+            plans: {},
+            totalModules: 0,
+            completedModules: 0
+        };
     });
     const teamProgressRecords = state.progress.filter(p => p.module_id && effectiveModuleIdsByUser.get(p.username)?.has(p.module_id));
 
@@ -2066,6 +2065,10 @@ function renderTeamProgressTable() {
         `;
 
         const level2Body = userCard.querySelector(".level2-body");
+
+        if (!userData.hasEnrollment) {
+            level2Body.innerHTML = `<div class="p-4 text-center text-muted">${state.lang === 'en' ? 'No Course assigned' : 'Chưa được gán khóa học (No Course assigned)'}</div>`;
+        }
 
         let planIdx = 0;
         planKeys.forEach(pKey => {

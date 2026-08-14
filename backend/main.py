@@ -217,6 +217,8 @@ def api_save_progress(req: ProgressUpdateRequest):
             planned_completion_date=req.planned_completion_date
         )
         return {"status": "success", "message": "Successfully saved progress"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating progress: {str(e)}")
 
