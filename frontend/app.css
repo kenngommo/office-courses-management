@@ -241,10 +241,13 @@ body {
 .main-layout {
     display: flex;
     flex: 1;
+    width: 100%;
+    min-width: 0;
 }
 
 .app-sidebar {
     width: 250px;
+    flex: 0 0 250px;
     background: var(--bg-glass);
     backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-glass);
@@ -301,6 +304,7 @@ body {
 /* Main Content Pane */
 .app-content {
     flex: 1;
+    min-width: 0;
     padding: 2rem;
     overflow-y: auto;
     max-height: calc(100vh - 70px);
@@ -863,6 +867,7 @@ body {
 
 .app-sidebar.collapsed {
     width: 70px;
+    flex-basis: 70px;
     padding: 1.5rem 0.5rem;
 }
 
@@ -1285,6 +1290,9 @@ body {
     padding: 1rem 1.2rem;
     background: rgba(0, 0, 0, 0.25);
     border-top: 1px dashed var(--border-glass);
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
 }
 
 .level2-card.expanded > .level3-modules-container,
@@ -1323,6 +1331,7 @@ body {
 
 .level3-module-table {
     width: 100%;
+    min-width: 1040px;
     border-collapse: collapse;
     font-size: 0.85rem;
 }
