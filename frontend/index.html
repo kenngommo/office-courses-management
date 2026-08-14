@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <!-- Main Style Sheet -->
-    <link rel="stylesheet" href="/app.css?v=20260814-team-filter">
+    <link rel="stylesheet" href="/app.css?v=20260814-profile-switch-close">
 </head>
 <body class="dark-theme">
     <div class="background-glow"></div>
@@ -29,7 +29,7 @@
             <div class="header-right">
                 <!-- User Profile & Settings Menu -->
                 <div class="user-profile-menu" id="userProfileMenu">
-                    <button type="button" class="user-profile-btn" id="userProfileBtn">
+                    <button type="button" class="user-profile-btn" id="userProfileBtn" aria-haspopup="true" aria-expanded="false">
                         <img id="topUserAvatar" class="user-avatar-top" src="https://ui-avatars.com/api/?name=User" alt="Avatar">
                         <div class="user-nav-text">
                             <span class="user-nav-name" id="topUserName">Đang tải...</span>
@@ -993,6 +993,6 @@
     </div>
 
     <!-- Main Controller Logic -->
-    <script src="/app.js?v=20260814-team-filter"></script>
+    <script src="/app.js?v=20260814-profile-switch-close"></script>
 </body>
 </html>

@@ -529,7 +529,8 @@ function setupEventHandlers() {
     if (userProfileBtn) {
         userProfileBtn.onclick = (e) => {
             e.stopPropagation();
-            userDropdownMenu.classList.toggle("show");
+            const isOpen = userDropdownMenu.classList.toggle("show");
+            userProfileBtn.setAttribute("aria-expanded", String(isOpen));
         };
     }
     
@@ -827,6 +828,8 @@ function setupEventHandlers() {
         const targetUser = state.users.find(u => u.username === username);
         if (targetUser) {
             state.currentUser = targetUser;
+            userDropdownMenu?.classList.remove("show");
+            userProfileBtn?.setAttribute("aria-expanded", "false");
             onUserChanged();
         }
     });
