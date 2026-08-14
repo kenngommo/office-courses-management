@@ -1,4 +1,26 @@
 const API_BASE = ""; // Since frontend is served from FastAPI root, requests are relative
+const SESSION_USER_KEY = "epm_user";
+
+function saveActiveSession(user) {
+    if (user) sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+}
+
+function getActiveSession() {
+    // Migrate the currently active legacy session once without keeping it after app closure.
+    const current = sessionStorage.getItem(SESSION_USER_KEY);
+    if (current) return current;
+    const legacy = localStorage.getItem(SESSION_USER_KEY);
+    if (legacy) {
+        sessionStorage.setItem(SESSION_USER_KEY, legacy);
+        localStorage.removeItem(SESSION_USER_KEY);
+    }
+    return legacy;
+}
+
+function clearActiveSession() {
+    sessionStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SESSION_USER_KEY);
+}
 
 // Application State
 let state = {
@@ -427,8 +449,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         } catch(e) {}
     }
     
-    // Check active session in localStorage
-    const savedUserJson = localStorage.getItem("epm_user");
+    // Persist across refreshes, but end the session when this app tab/window closes.
+    const savedUserJson = getActiveSession();
     if (savedUserJson) {
         try {
             const savedUser = JSON.parse(savedUserJson);
@@ -574,7 +596,7 @@ function setupEventHandlers() {
                 if (response.ok && data.user) {
                     state.loggedInUser = data.user;
                     state.currentUser = data.user;
-                    localStorage.setItem("epm_user", JSON.stringify(data.user));
+                    saveActiveSession(data.user);
                     
                     if (rememberMeCheck && rememberMeCheck.checked) {
                         localStorage.setItem("epm_remember", JSON.stringify({ user_or_email: userOrEmail, password: password }));
@@ -722,7 +744,7 @@ function setupEventHandlers() {
                 const data = await response.json();
                 if (response.ok && data.user) {
                     state.currentUser = data.user;
-                    localStorage.setItem("epm_user", JSON.stringify(data.user));
+                    saveActiveSession(data.user);
                     profileMsg.className = "auth-info-msg";
                     profileMsg.textContent = "Cập nhật ảnh đại diện thành công!";
                     profileMsg.classList.remove("hidden");
@@ -788,7 +810,7 @@ function setupEventHandlers() {
                     hideModal(changePasswordModal);
                     if (state.currentUser) {
                         state.currentUser.must_change_password = false;
-                        localStorage.setItem("epm_user", JSON.stringify(state.currentUser));
+                        saveActiveSession(state.currentUser);
                     }
                     await refreshData();
                 } else {
@@ -806,7 +828,7 @@ function setupEventHandlers() {
     if (btnLogout) {
         btnLogout.onclick = () => {
             userDropdownMenu.classList.remove("show");
-            localStorage.removeItem("epm_user");
+            clearActiveSession();
             state.loggedInUser = null;
             state.currentUser = null;
             loginOverlay.classList.add("active");
