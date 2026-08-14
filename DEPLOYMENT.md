@@ -1,20 +1,41 @@
-# Data persistence and backups
+# Production data, migrations, and backups
 
-The application writes its live workbook to `DATA_DIR/sheet.xlsx`. If
-`DATA_DIR` is not set, it keeps the original local behavior and uses the
-project root.
+Neon is the source of truth in production. The workbook bundled in the Git
+repository is only a local-development seed and must never overwrite an
+existing online workbook during a deployment.
 
-For Render, attach a Persistent Disk mounted at `/var/data` and set:
+Render must define:
 
 ```
-DATA_DIR=/var/data
+DATABASE_URL=<Neon pooled connection string>
 BACKUP_RETENTION=30
 ```
 
-Every successful POST, PUT, PATCH, or DELETE API request creates a timestamped
-snapshot in `DATA_DIR/backups`. Old snapshots are automatically pruned. The
-first start on an empty disk copies the repository's `sheet.xlsx` into the
-persistent directory.
+On startup the application always downloads the existing online workbook. If
+the online workbook is missing, startup fails instead of importing the bundled
+file. `ALLOW_REMOTE_SEED=true` is allowed only for an intentional first import
+or an explicitly approved recovery operation, and must be removed afterwards.
+
+Every successful data-changing API request publishes a new workbook version
+and retains the previous version in `workbook_backups`. A request may publish
+only when the online SHA still matches the version it read. Concurrent changes
+return HTTP 409 rather than overwriting newer data.
+
+## Deployment rule
+
+1. Deploy application code without replacing production data.
+2. For schema changes, prepare and test an idempotent migration on a temporary
+   Neon branch.
+3. Back up/verify the current production version and obtain approval.
+4. Apply only the reviewed migration to the main Neon branch.
+5. Verify `/api/system/storage`, record counts, IDs, and relationships after
+   deployment. Never delete/recreate the database as part of a normal deploy.
+
+Run the read-only production audit after every deployment:
+
+```
+python scripts/audit_online_data.py
+```
 
 Use `GET /api/system/storage` to verify the active data location and backup
 count after deployment.

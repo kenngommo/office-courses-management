@@ -1,18 +1,21 @@
 import os
+import shutil
 from fastapi import FastAPI, HTTPException, Query, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
-import shutil
 import asyncio
-from backend.storage import BACKUP_DIR, DATA_DIR, EXCEL_FILE, PERSISTENT_STORAGE_CONFIGURED, create_backup
+from backend.storage import BACKUP_DIR, DATA_DIR, EXCEL_FILE, PERSISTENT_STORAGE_CONFIGURED, create_backup, workbook_sha256
+from backend.asset_store import get_asset, save_asset
 from backend.workbook_store import (
     initialize_remote_workbook,
     is_enabled as remote_store_enabled,
     pull_remote_workbook,
     publish_local_workbook,
     remote_status,
+    WorkbookConflictError,
 )
 
 from backend.db_manager import (
@@ -44,7 +47,13 @@ from backend.db_manager import (
 
 # Restore the durable workbook before any schema initialization or API read.
 initialize_remote_workbook()
+startup_workbook_sha = workbook_sha256()
 init_db()
+if remote_store_enabled() and workbook_sha256() != startup_workbook_sha:
+    raise RuntimeError(
+        "Workbook schema differs from production. Refusing an automatic data migration; "
+        "apply a reviewed migration to the online workbook first."
+    )
 
 app = FastAPI(title="Courses Management API V5")
 workbook_request_lock = asyncio.Lock()
@@ -53,15 +62,22 @@ workbook_request_lock = asyncio.Lock()
 async def backup_after_data_change(request, call_next):
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
+    if request.method == "GET" and request.url.path.startswith("/api/assets/"):
+        return await call_next(request)
     async with workbook_request_lock:
+        remote_base_sha = None
         if remote_store_enabled():
-            pull_remote_workbook()
+            remote_base_sha = pull_remote_workbook()
         response = await call_next(request)
         is_data_change = request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path != "/api/auth/login"
         if is_data_change and response.status_code < 400:
             reason = f"{request.method.lower()}-{request.url.path.strip('/').replace('/', '-')}"
             create_backup(reason)
-            publish_local_workbook(reason)
+            try:
+                publish_local_workbook(reason, expected_remote_sha=remote_base_sha)
+            except WorkbookConflictError as exc:
+                pull_remote_workbook()
+                return JSONResponse(status_code=409, content={"detail": str(exc)})
         return response
 
 # Setup CORS to allow React frontend to connect
@@ -283,6 +299,8 @@ def api_save_enrollment(req: EnrollmentRequest):
             target_id=req.target_id
         )
         return {"status": "success", "message": f"Successfully enrolled {req.username} in {target_name} ({req.target_type})"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving enrollment: {str(e)}")
 
@@ -298,6 +316,8 @@ def api_delete_enrollment(
             raise HTTPException(status_code=400, detail="target_name or course_name is required")
         delete_enrollment(username, name_to_del)
         return {"status": "success", "message": f"Successfully deleted enrollment for {username} in {name_to_del}"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting enrollment: {str(e)}")
 
@@ -311,17 +331,26 @@ async def api_update_avatar(
         final_url = avatar_url.strip() if avatar_url else None
         
         if avatar_file and avatar_file.filename:
-            # Ensure uploads directory exists
-            uploads_dir = os.path.join(FRONTEND_DIR, "uploads", "avatars")
-            os.makedirs(uploads_dir, exist_ok=True)
-            
-            # Clean filename and save
-            safe_filename = f"{username.strip()}_{avatar_file.filename.replace(' ', '_')}"
-            file_path = os.path.join(uploads_dir, safe_filename)
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(avatar_file.file, buffer)
-                
-            final_url = f"/uploads/avatars/{safe_filename}"
+            content_type = (avatar_file.content_type or "").lower()
+            if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+                raise HTTPException(status_code=400, detail="Chỉ chấp nhận ảnh JPEG, PNG, WebP hoặc GIF.")
+            image_bytes = await avatar_file.read(2 * 1024 * 1024 + 1)
+            if not image_bytes:
+                raise HTTPException(status_code=400, detail="Tệp ảnh trống.")
+            if len(image_bytes) > 2 * 1024 * 1024:
+                raise HTTPException(status_code=400, detail="Ảnh đại diện không được vượt quá 2 MB.")
+            if remote_store_enabled():
+                asset_key = f"avatar:{username.strip().lower()}"
+                save_asset(asset_key, content_type, image_bytes)
+                final_url = f"/api/assets/avatar/{username.strip()}"
+            else:
+                uploads_dir = os.path.join(FRONTEND_DIR, "uploads", "avatars")
+                os.makedirs(uploads_dir, exist_ok=True)
+                safe_filename = f"{username.strip()}_{avatar_file.filename.replace(' ', '_')}"
+                file_path = os.path.join(uploads_dir, safe_filename)
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(avatar_file.file, buffer)
+                final_url = f"/uploads/avatars/{safe_filename}"
             
         if not final_url:
             raise HTTPException(status_code=400, detail="Vui lòng tải lên tệp ảnh hoặc nhập đường dẫn URL ảnh.")
@@ -335,6 +364,19 @@ async def api_update_avatar(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi cập nhật ảnh đại diện: {str(e)}")
+
+
+@app.get("/api/assets/avatar/{username}")
+def api_get_avatar(username: str):
+    asset = get_asset(f"avatar:{username.strip().lower()}")
+    if not asset:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh đại diện.")
+    content_type, content, digest = asset
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"ETag": f'"{digest}"', "Cache-Control": "public, max-age=300"},
+    )
 
 class ToggleModuleRequest(BaseModel):
     plan: Optional[str] = None
@@ -528,8 +570,6 @@ def api_delete_single_module(
         return {"status": "success", "message": f"Xóa module '{module_name}' thành công!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-from fastapi.responses import Response
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
