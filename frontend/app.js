@@ -8,6 +8,7 @@ let state = {
     courses: [],
     progress: [],
     enrollments: [],
+    teamCourseAssignmentFilter: localStorage.getItem("epm_team_course_assignment_filter") || "assigned",
     lang: localStorage.getItem("epm_lang") || "en"
 };
 
@@ -51,6 +52,10 @@ const i18n = {
         legend_tooslow: "Quá chậm:",
 
         title_team_progress: "Tổng hợp tiến độ nhân viên",
+        lbl_assignment_filter: "Lọc theo khóa học:",
+        filter_assigned_only: "Có khóa học",
+        filter_unassigned_only: "Chưa có khóa học",
+        filter_all_employees: "Toàn bộ nhân viên",
         lbl_legend_title: "Ghi chú trạng thái đánh giá:",
         lbl_filter_employee: "Lọc nhân viên:",
         lbl_filter_plan: "Lọc Plan:",
@@ -179,6 +184,10 @@ const i18n = {
         legend_tooslow: "Critical Delay:",
 
         title_team_progress: "Overall Team Learning Progress",
+        lbl_assignment_filter: "Course assignment:",
+        filter_assigned_only: "Course assigned",
+        filter_unassigned_only: "No course assigned",
+        filter_all_employees: "All employees",
         lbl_legend_title: "Status Assessment Legend:",
         lbl_filter_employee: "Filter Employee:",
         lbl_filter_plan: "Filter Plan:",
@@ -984,6 +993,15 @@ function setupEventHandlers() {
 
     const btnExpandAllTeamPlans = document.getElementById("btnExpandAllTeamPlans");
     const btnCollapseAllTeamPlans = document.getElementById("btnCollapseAllTeamPlans");
+    const teamCourseAssignmentFilter = document.getElementById("teamCourseAssignmentFilter");
+    if (teamCourseAssignmentFilter) {
+        teamCourseAssignmentFilter.value = state.teamCourseAssignmentFilter;
+        teamCourseAssignmentFilter.onchange = () => {
+            state.teamCourseAssignmentFilter = teamCourseAssignmentFilter.value;
+            localStorage.setItem("epm_team_course_assignment_filter", state.teamCourseAssignmentFilter);
+            renderTeamProgressTable();
+        };
+    }
     if (btnExpandAllTeamPlans && btnCollapseAllTeamPlans) {
         btnExpandAllTeamPlans.onclick = () => {
             document.querySelectorAll("#teamHierarchyContainer .level1-card").forEach(c => c.classList.add("expanded"));
@@ -2028,7 +2046,13 @@ function renderTeamProgressTable() {
     });
 
     let userIdx = 0;
-    Object.values(userMap).forEach(userData => {
+    Object.values(userMap)
+        .filter(userData => {
+            if (state.teamCourseAssignmentFilter === "unassigned") return !userData.hasEnrollment;
+            if (state.teamCourseAssignmentFilter === "all") return true;
+            return userData.hasEnrollment;
+        })
+        .forEach(userData => {
         userIdx++;
         const planKeys = Object.keys(userData.plans);
         const planCount = planKeys.length;
@@ -2237,7 +2261,7 @@ function renderTeamProgressTable() {
         });
 
         teamHierarchyContainer.appendChild(userCard);
-    });
+        });
 }
 
 // EMPLOYEE REGISTRY VIEW

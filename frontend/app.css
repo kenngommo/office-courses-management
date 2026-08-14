@@ -813,6 +813,24 @@ body {
     text-align: center;
 }
 
+.team-assignment-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.team-assignment-filter select {
+    width: auto;
+    min-width: 10rem;
+    padding: 0.3rem 1.8rem 0.3rem 0.55rem;
+}
+
 .btn-update-progress {
     width: 36px;
     height: 36px;
@@ -1862,4 +1880,3 @@ body {
 .toggle-switch-btn.is-inactive:hover {
     background: rgba(148, 163, 184, 0.25);
 }
-

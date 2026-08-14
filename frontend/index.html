@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <!-- Main Style Sheet -->
-    <link rel="stylesheet" href="/app.css?v=20260814-compact-dates">
+    <link rel="stylesheet" href="/app.css?v=20260814-team-filter">
 </head>
 <body class="dark-theme">
     <div class="background-glow"></div>
@@ -250,6 +250,14 @@
                         <div class="pane-header flex-header">
                             <h2 data-i18n="title_team_progress">Tổng hợp tiến độ nhân viên</h2>
                             <div class="mgmt-actions-row">
+                                <label class="team-assignment-filter" for="teamCourseAssignmentFilter">
+                                    <span data-i18n="lbl_assignment_filter">Lọc theo khóa học:</span>
+                                    <select id="teamCourseAssignmentFilter" class="form-control form-control-sm">
+                                        <option value="assigned" data-i18n="filter_assigned_only">Có khóa học</option>
+                                        <option value="unassigned" data-i18n="filter_unassigned_only">Chưa có khóa học</option>
+                                        <option value="all" data-i18n="filter_all_employees">Toàn bộ nhân viên</option>
+                                    </select>
+                                </label>
                                 <button class="btn btn-secondary btn-sm" id="btnExpandAllTeamPlans">
                                     <span class="material-icons-round font-sm">unfold_more</span> <span data-i18n="btn_expand_all">Mở tất cả</span>
                                 </button>
@@ -985,6 +993,6 @@
     </div>
 
     <!-- Main Controller Logic -->
-    <script src="/app.js?v=20260814-compact-dates"></script>
+    <script src="/app.js?v=20260814-team-filter"></script>
 </body>
 </html>
