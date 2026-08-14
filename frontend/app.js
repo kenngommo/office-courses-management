@@ -1529,8 +1529,10 @@ function renderPersonalTab() {
                                 data-start="${startDate}"
                                 data-comp="${compDate}"
                                 data-planned="${plannedDate}"
+                                title="${t("btn_update")}"
+                                aria-label="${t("btn_update")}"
                                 onclick="event.stopPropagation(); openProgressUpdateModal('${encUser}', '${encCourse}', '${encPath}', '${encMod}', '${currentStatus}', ${currentPercent}, '${startDate}', '${compDate}', '${plannedDate}')">
-                                <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
+                                <span class="material-icons-round">edit</span>
                             </button>
                         </td>
                     </tr>
@@ -1716,18 +1718,20 @@ function getStatusBadge(status) {
     return `<span class="badge ${cls}">${txt}</span>`;
 }
 
+function formatCompactDate(dateValue) {
+    if (!dateValue) return "";
+    const match = String(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[2]}/${match[3]}/${match[1].slice(-2)}`;
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return String(dateValue);
+    return `${String(parsed.getMonth() + 1).padStart(2, "0")}/${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getFullYear()).slice(-2)}`;
+}
+
 function renderScheduleDates(kind, plannedDate, actualDate) {
-    const isEn = state.lang === "en";
-    const plannedLabel = kind === "start"
-        ? (isEn ? "Planned" : "Dự kiến")
-        : (isEn ? "Planned Completed" : "Dự kiến hoàn thành");
-    const actualLabel = kind === "start"
-        ? (isEn ? "Actual" : "Thực tế")
-        : (isEn ? "Completed" : "Hoàn thành");
     const empty = t("not_set") || "-";
     return `<div class="schedule-date-cell">
-        <div class="schedule-date-line"><span class="schedule-date-label">${plannedLabel}</span><span class="font-mono">${plannedDate || empty}</span></div>
-        <div class="schedule-date-line actual"><span class="schedule-date-label">${actualLabel}</span><span class="font-mono">${actualDate || empty}</span></div>
+        <div class="schedule-date-line"><span class="schedule-date-label">Planned:</span> <span class="font-mono">${formatCompactDate(plannedDate) || empty}</span></div>
+        <div class="schedule-date-line actual"><span class="schedule-date-label">Actual:</span> <span class="font-mono">${formatCompactDate(actualDate) || empty}</span></div>
     </div>`;
 }
 
@@ -2213,8 +2217,9 @@ function renderTeamProgressTable() {
                                                     data-progress="${p.progress_percent}"
                                                     data-start="${safeStart}"
                                                     data-comp="${safeComp}"
-                                                    data-planned="${safeTarget}">
-                                                    <span class="material-icons-round font-sm">edit</span> ${t("btn_update")}
+                                                    data-planned="${safeTarget}"
+                                                    title="${t("btn_update")}" aria-label="${t("btn_update")}">
+                                                    <span class="material-icons-round">edit</span>
                                                 </button>
                                             </td>
                                         </tr>
