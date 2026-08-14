@@ -40,7 +40,7 @@ const i18n = {
         stat_critical: "Quá chậm",
 
         title_personal_progress: "Bảng tiến độ cá nhân:",
-        lbl_filter_by_course: "Xem theo Khóa học:",
+        lbl_filter_by_course: "Xem theo Plan:",
         title_my_learning_path: "Danh sách lộ trình học của tôi",
         
         chart_weighted_progress: "Tiến độ khóa học (Trọng số giờ)",
@@ -105,6 +105,8 @@ const i18n = {
         col_plan_course: "Plan / Khóa học",
         col_ratio: "Hệ số Ratio",
         col_daily_hours: "Giờ học / ngày",
+        col_planned_start: "Bắt đầu dự kiến",
+        col_planned_end: "Kết thúc dự kiến",
         col_study_days: "Số ngày học",
         col_workweek: "Lịch làm việc",
 
@@ -166,7 +168,7 @@ const i18n = {
         stat_critical: "Critical Delay",
 
         title_personal_progress: "Personal Learning Dashboard:",
-        lbl_filter_by_course: "Filter by Course:",
+        lbl_filter_by_course: "Filter by Plan:",
         title_my_learning_path: "My Learning Paths & Modules",
 
         chart_weighted_progress: "Course Progress (Weighted Hours)",
@@ -231,6 +233,8 @@ const i18n = {
         col_plan_course: "Plan / Course",
         col_ratio: "Ratio Multiplier",
         col_daily_hours: "Daily Hours",
+        col_planned_start: "Planned Start",
+        col_planned_end: "Planned End",
         col_study_days: "Study Days",
         col_workweek: "Workweek Schedule",
 
@@ -382,6 +386,7 @@ const btnProfileChangePwd = document.getElementById("btnProfileChangePwd");
 
 const campaignModal = document.getElementById("campaignModal");
 const campaignForm = document.getElementById("campaignForm");
+const templateModulesModal = document.getElementById("templateModulesModal");
 
 const editDurationModal = document.getElementById("editDurationModal");
 const editDurationForm = document.getElementById("editDurationForm");
@@ -908,6 +913,8 @@ function setupEventHandlers() {
 
     document.getElementById("closeCampaignModal").onclick = () => hideModal(campaignModal);
     document.getElementById("btnCancelCampaignModal").onclick = () => hideModal(campaignModal);
+    document.getElementById("closeTemplateModulesModal").onclick = () => hideModal(templateModulesModal);
+    document.getElementById("btnCancelTemplateModulesModal").onclick = () => hideModal(templateModulesModal);
 
     if (campaignForm) campaignForm.addEventListener("submit", submitCampaignForm);
 
@@ -1016,13 +1023,14 @@ function setupEventHandlers() {
         const course = safeDecode(btn.getAttribute("data-course"));
         const path = safeDecode(btn.getAttribute("data-path"));
         const module = safeDecode(btn.getAttribute("data-module"));
+        const moduleId = btn.getAttribute("data-module-id") || "";
         const status = btn.getAttribute("data-status") || "Not Started";
         const progress = parseFloat(btn.getAttribute("data-progress") || "0");
         const start = btn.getAttribute("data-start") || "";
         const comp = btn.getAttribute("data-comp") || "";
         const planned = btn.getAttribute("data-planned") || "";
 
-        openProgressUpdateModal(username, course, path, module, status, progress, start, comp, planned);
+        openProgressUpdateModal(username, course, path, module, status, progress, start, comp, planned, moduleId);
     });
 
     document.getElementById("btnOpenAddEnrollment").onclick = () => {
@@ -1229,7 +1237,7 @@ function hideModal(modalEl) {
 
 // Helper: Get all courses matching user's enrollments or progress history
 function getUserEnrolledCourses(username) {
-    if (!username) return state.courses;
+    if (!username) return state.courses.filter(c => c.queue !== false);
     
     // Find all enrollment records for this username
     const userEnrs = state.enrollments.filter(e => e.username === username);
@@ -1237,21 +1245,22 @@ function getUserEnrolledCourses(username) {
     // If user has specific enrollment records, filter courses matching those enrollments
     if (userEnrs.length > 0) {
         return state.courses.filter(c => {
+            if (c.queue === false) return false;
             return userEnrs.some(e => {
-                const targetName = e.target_name || e.course_name || "";
+                // IDs are authoritative. Names are a one-time legacy fallback.
                 if (e.target_type === "plan") {
-                    return targetName === c.plan || e.course_name === c.plan;
+                    return e.target_id ? e.target_id === c.plan_id : (e.target_name || e.course_name) === c.plan;
                 } else if (e.target_type === "course") {
-                    return targetName === c.course_name || e.course_name === c.course_name;
+                    return e.target_id ? e.target_id === c.course_id : (e.target_name || e.course_name) === c.course_name;
                 } else {
-                    return targetName === c.course_name || targetName === c.plan || e.course_name === c.course_name || e.course_name === c.plan;
+                    return false;
                 }
             });
         });
     }
 
     // Default: If no explicit enrollment restrictions exist for this user, give access to all courses in curriculum
-    return state.courses;
+    return state.courses.filter(c => c.queue !== false);
 }
 
 // Render Dashboard Data based on selected user
@@ -1259,21 +1268,22 @@ function renderActiveDashboard() {
     if (!state.currentUser) return;
     const activeUser = state.loggedInUser || state.currentUser;
     
-    // 1. Populate the Enrolled Course Filter select element on Personal tab
+    // 1. Populate the enrolled Plan filter on the Personal tab. Courses remain
+    // nested inside their Plan and are not exposed as top-level filter values.
     const allUserCourses = getUserEnrolledCourses(state.currentUser.username);
-    const uniqueCourseNames = Array.from(new Set(allUserCourses.map(c => c.course_name)));
+    const uniquePlanNames = Array.from(new Set(allUserCourses.map(c => c.plan || "Khác")));
     const oldFilterVal = courseFilter.value;
     
-    courseFilter.innerHTML = `<option value="ALL">${t("filter_all_courses")}</option>`;
-    uniqueCourseNames.forEach(cName => {
+    courseFilter.innerHTML = `<option value="ALL">${t("filter_all_plans")}</option>`;
+    uniquePlanNames.forEach(planName => {
         const opt = document.createElement("option");
-        opt.value = cName;
-        opt.textContent = cName;
+        opt.value = planName;
+        opt.textContent = planName;
         courseFilter.appendChild(opt);
     });
     
     // Restore or reset filter value
-    if (oldFilterVal && (oldFilterVal === "ALL" || uniqueCourseNames.includes(oldFilterVal))) {
+    if (oldFilterVal && (oldFilterVal === "ALL" || uniquePlanNames.includes(oldFilterVal))) {
         courseFilter.value = oldFilterVal;
     } else {
         courseFilter.value = "ALL";
@@ -1296,14 +1306,17 @@ function renderPersonalTab() {
     
     let userEnrolledCourses = getUserEnrolledCourses(state.currentUser.username);
     if (filter !== "ALL") {
-        userEnrolledCourses = userEnrolledCourses.filter(c => c.course_name === filter);
+        userEnrolledCourses = userEnrolledCourses.filter(c => (c.plan || "Khác") === filter);
     }
     
     // Get progress records for current user
     let myProgress = state.progress.filter(p => p.username === state.currentUser.username);
-    if (filter !== "ALL") {
-        myProgress = myProgress.filter(p => p.course_name === filter);
-    }
+    const allowedModuleIds = new Set(userEnrolledCourses.map(c => c.module_id).filter(Boolean));
+    const allowedLegacyKeys = new Set(userEnrolledCourses.map(c => `${c.course_name}:::${c.path || ""}:::${c.module_name}`));
+    myProgress = myProgress.filter(p =>
+        (p.module_id && allowedModuleIds.has(p.module_id)) ||
+        allowedLegacyKeys.has(`${p.course_name}:::${p.path || ""}:::${p.module_name}`)
+    );
     
     // 1. Compute KPIs
     const totalModules = userEnrolledCourses.length;
@@ -1476,6 +1489,7 @@ function renderPersonalTab() {
                 const currentPercent = p ? p.progress_percent : 0;
                 const speedStatus = p ? p.tracking_status : "On-track";
                 const plannedDate = p ? p.planned_completion_date : "";
+                const plannedStartDate = p ? p.planned_start_date : "";
                 const startDate = p ? p.start_date : "";
                 const compDate = p ? p.completion_date : "";
 
@@ -1494,7 +1508,8 @@ function renderPersonalTab() {
                             ${isExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
                         </td>
                         <td><span class="font-mono">${formatDuration(m.duration, m.duration_minutes)}</span></td>
-                        <td><span class="font-mono text-secondary">${plannedDate || t("not_set")}</span></td>
+                        <td>${renderScheduleDates("start", plannedStartDate, startDate)}</td>
+                        <td>${renderScheduleDates("end", plannedDate, compDate)}</td>
                         <td>
                             <div class="prog-bar-cell">
                                 <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${currentPercent}%"></div></div>
@@ -1502,13 +1517,14 @@ function renderPersonalTab() {
                             </div>
                         </td>
                         <td>${getStatusBadge(currentStatus)}</td>
-                        <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes)}</td>
+                        <td>${getSpeedBadge(speedStatus, currentStatus, plannedDate, startDate, m.duration_minutes, plannedStartDate)}</td>
                         <td class="actions-col">
                             <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
                                 data-username="${encUser}"
                                 data-course="${encCourse}"
                                 data-path="${encPath}"
                                 data-module="${encMod}"
+                                data-module-id="${m.module_id || ''}"
                                 data-status="${currentStatus}"
                                 data-progress="${currentPercent}"
                                 data-start="${startDate}"
@@ -1598,7 +1614,8 @@ function renderPersonalTab() {
                                         <tr>
                                             <th>${t("col_module")}</th>
                                             <th>${t("col_duration")}</th>
-                                            <th>${t("col_target_date")}</th>
+                                            <th>${state.lang === "en" ? "Start" : "Bắt đầu"}</th>
+                                            <th>${state.lang === "en" ? "End" : "Kết thúc"}</th>
                                             <th>${t("col_progress")}</th>
                                             <th>${t("col_status")}</th>
                                             <th>${t("col_tracking")}</th>
@@ -1622,7 +1639,8 @@ function renderPersonalTab() {
                                 <tr>
                                     <th>${t("col_module")}</th>
                                     <th>${t("col_duration")}</th>
-                                    <th>${t("col_target_date")}</th>
+                                    <th>${state.lang === "en" ? "Start" : "Bắt đầu"}</th>
+                                    <th>${state.lang === "en" ? "End" : "Kết thúc"}</th>
                                     <th>${t("col_progress")}</th>
                                     <th>${t("col_status")}</th>
                                     <th>${t("col_tracking")}</th>
@@ -1699,7 +1717,22 @@ function getStatusBadge(status) {
     return `<span class="badge ${cls}">${txt}</span>`;
 }
 
-function getSpeedBadge(speed, status, plannedDate, startDate, durationMins) {
+function renderScheduleDates(kind, plannedDate, actualDate) {
+    const isEn = state.lang === "en";
+    const plannedLabel = kind === "start"
+        ? (isEn ? "Planned" : "Dự kiến")
+        : (isEn ? "Planned Completed" : "Dự kiến hoàn thành");
+    const actualLabel = kind === "start"
+        ? (isEn ? "Actual" : "Thực tế")
+        : (isEn ? "Completed" : "Hoàn thành");
+    const empty = t("not_set") || "-";
+    return `<div class="schedule-date-cell">
+        <div class="schedule-date-line"><span class="schedule-date-label">${plannedLabel}</span><span class="font-mono">${plannedDate || empty}</span></div>
+        <div class="schedule-date-line actual"><span class="schedule-date-label">${actualLabel}</span><span class="font-mono">${actualDate || empty}</span></div>
+    </div>`;
+}
+
+function getSpeedBadge(speed, status, plannedDate, startDate, durationMins, plannedStartDate) {
     if (!plannedDate) return `<span class="text-muted">-</span>`;
     
     let evaluatedSpeed = speed || "On-track";
@@ -1729,7 +1762,11 @@ function getSpeedBadge(speed, status, plannedDate, startDate, durationMins) {
             }
         } else {
             // Not Started
-            if (today >= pDate) {
+            const plannedStart = plannedStartDate ? new Date(plannedStartDate) : null;
+            if (plannedStart) plannedStart.setHours(0, 0, 0, 0);
+            if (plannedStart && today >= plannedStart) {
+                evaluatedSpeed = today > pDate ? "Too slow" : "Slow";
+            } else if (today >= pDate) {
                 const diffDays = Math.floor((today - pDate) / (1000 * 60 * 60 * 24));
                 if (isShortModule) {
                     evaluatedSpeed = diffDays <= 3 ? "Slow" : "Too slow";
@@ -1773,7 +1810,7 @@ function safeDecode(str) {
 }
 
 // Open Progress Modal
-window.openProgressUpdateModal = function(username, courseName, path, moduleName, status, progress, start, comp, planned) {
+window.openProgressUpdateModal = function(username, courseName, path, moduleName, status, progress, start, comp, planned, moduleId = "") {
     username = safeDecode(username);
     courseName = safeDecode(courseName);
     path = safeDecode(path);
@@ -1788,6 +1825,7 @@ window.openProgressUpdateModal = function(username, courseName, path, moduleName
     const elCourse = document.getElementById("progCourseName");
     const elPath = document.getElementById("progPath");
     const elModule = document.getElementById("progModuleName");
+    const elModuleId = document.getElementById("progModuleId");
     const elInfoCourse = document.getElementById("progInfoCourse");
     const elInfoModule = document.getElementById("progInfoModule");
     const elStatus = document.getElementById("progStatus");
@@ -1801,6 +1839,7 @@ window.openProgressUpdateModal = function(username, courseName, path, moduleName
     if (elCourse) elCourse.value = courseName;
     if (elPath) elPath.value = path || "";
     if (elModule) elModule.value = moduleName;
+    if (elModuleId) elModuleId.value = moduleId;
     
     if (elInfoCourse) elInfoCourse.textContent = courseName;
     if (elInfoModule) elInfoModule.textContent = moduleName;
@@ -1845,6 +1884,7 @@ async function submitProgressForm(e) {
         course_name: document.getElementById("progCourseName").value,
         path: document.getElementById("progPath").value || "",
         module_name: document.getElementById("progModuleName").value,
+        module_id: document.getElementById("progModuleId").value || null,
         status: document.getElementById("progStatus").value,
         progress_percent: parseFloat(document.getElementById("progPercent").value),
         start_date: document.getElementById("progStartDate").value || null,
@@ -1918,10 +1958,17 @@ function renderTeamProgressTable() {
         return;
     }
 
-    // Group state.progress by User -> Plan -> Course -> Module Records
+    // Group only the effective Active curriculum assigned to each employee.
+    // Inactive template modules remain available in management/history, but do
+    // not count toward the employee's current course/module totals.
     const userMap = {};
+    const effectiveModuleIdsByUser = new Map();
+    state.users.forEach(user => {
+        effectiveModuleIdsByUser.set(user.username, new Set(getUserEnrolledCourses(user.username).map(m => m.module_id).filter(Boolean)));
+    });
+    const teamProgressRecords = state.progress.filter(p => p.module_id && effectiveModuleIdsByUser.get(p.username)?.has(p.module_id));
 
-    state.progress.forEach(p => {
+    teamProgressRecords.forEach(p => {
         const username = p.username;
         if (!userMap[username]) {
             const emp = state.users.find(u => u.username === username);
@@ -1943,7 +1990,7 @@ function renderTeamProgressTable() {
         }
 
         // Determine plan name & course name
-        const matchCourse = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || ""));
+        const matchCourse = state.courses.find(c => c.module_id === p.module_id);
         const planName = p.plan || (matchCourse ? matchCourse.plan : "Khóa học khác");
         const courseKey = p.path ? `${p.course_name}:::${p.path}` : p.course_name;
 
@@ -2112,7 +2159,8 @@ function renderTeamProgressTable() {
                                 <tr>
                                     <th>${t("col_module")}</th>
                                     <th>${t("col_duration")}</th>
-                                    <th>${t("col_target_date")}</th>
+                                    <th>${state.lang === "en" ? "Start" : "Bắt đầu"}</th>
+                                    <th>${state.lang === "en" ? "End" : "Kết thúc"}</th>
                                     <th>${t("col_progress")}</th>
                                     <th>${t("col_status")}</th>
                                     <th>${t("col_tracking")}</th>
@@ -2121,7 +2169,7 @@ function renderTeamProgressTable() {
                             </thead>
                             <tbody>
                                 ${courseObj.records.map(p => {
-                                    const matchMod = state.courses.find(c => c.course_name === p.course_name && (c.path || "") === (p.path || "") && c.module_name === p.module_name);
+                                    const matchMod = state.courses.find(c => c.module_id === p.module_id);
                                     const durationText = matchMod ? formatDuration(matchMod.duration, matchMod.duration_minutes) : (p.duration ? formatDuration(p.duration, p.duration_minutes) : '-');
                                     const isTeamExamMod = /1z0-|exam|certification|professional/i.test(p.module_name);
                                     const teamModIcon = isTeamExamMod ? 'assignment_turned_in' : 'play_circle';
@@ -2141,7 +2189,8 @@ function renderTeamProgressTable() {
                                                 ${isTeamExamMod ? '<span class="badge-type-exam ml-1">Exam</span>' : ''}
                                             </td>
                                             <td><span class="font-mono text-secondary">${durationText}</span></td>
-                                            <td><span class="font-mono text-secondary">${p.planned_completion_date || '-'}</span></td>
+                                            <td>${renderScheduleDates("start", p.planned_start_date, p.start_date)}</td>
+                                            <td>${renderScheduleDates("end", p.planned_completion_date, p.completion_date)}</td>
                                             <td>
                                                 <div class="prog-bar-cell">
                                                     <div class="prog-bar-bg"><div class="prog-bar-fill" style="width: ${p.progress_percent}%"></div></div>
@@ -2149,13 +2198,14 @@ function renderTeamProgressTable() {
                                                 </div>
                                             </td>
                                             <td>${getStatusBadge(p.status)}</td>
-                                            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0)}</td>
+                                            <td>${getSpeedBadge(p.tracking_status, p.status, p.planned_completion_date, p.start_date, matchMod ? matchMod.duration_minutes : 0, p.planned_start_date)}</td>
                                             <td class="actions-col">
                                                 <button type="button" class="btn btn-secondary btn-sm btn-update-progress"
                                                     data-username="${encUser}"
                                                     data-course="${encCourse}"
                                                     data-path="${encPath}"
                                                     data-module="${encMod}"
+                                                    data-module-id="${p.module_id || ''}"
                                                     data-status="${p.status}"
                                                     data-progress="${p.progress_percent}"
                                                     data-start="${safeStart}"
@@ -2431,7 +2481,12 @@ function renderCourseMgmtTable() {
                 totalMinutes: 0,
                 activeMinutes: 0,
                 totalModules: 0,
-                activeModules: 0
+                activeModules: 0,
+                plan_id: c.plan_id || "",
+                plan_type: c.plan_type || "main",
+                source_plan_id: c.source_plan_id || "",
+                plan_order: c.plan_order || 0,
+                plan_version: c.plan_version || 1
             };
         }
         
@@ -2462,7 +2517,7 @@ function renderCourseMgmtTable() {
     });
 
     let planIdx = 0;
-    Object.values(planMap).forEach(plan => {
+    Object.values(planMap).sort((a, b) => a.plan_order - b.plan_order).forEach(plan => {
         planIdx++;
         const courseKeys = Object.keys(plan.courses);
         const courseCount = courseKeys.length;
@@ -2484,7 +2539,7 @@ function renderCourseMgmtTable() {
                     <span class="material-icons-round level1-chevron">keyboard_arrow_right</span>
                     <span class="material-icons-round level1-icon">school</span>
                     <div class="level1-title-text">
-                        <h3 class="plan-name">${plan.planName}</h3>
+                        <h3 class="plan-name">${plan.planName} ${plan.plan_type === 'template' ? '<span class="badge count-badge">Template</span>' : ''}</h3>
                         <span class="level1-subtitle">${t("level1_subtitle")} • <strong class="text-success">${plan.activeModules}/${plan.totalModules} modules active</strong></span>
                     </div>
                 </div>
@@ -2500,6 +2555,12 @@ function renderCourseMgmtTable() {
                             title="Lưu tất cả các khóa & module đang Active của Plan này thành 1 Plan đào tạo mới">
                         <span class="material-icons-round font-sm">content_copy</span> ${t("btn_save_as_plan")}
                     </button>
+                    ${plan.plan_type === 'template' ? `
+                    <button type="button" class="btn btn-primary btn-sm ml-2"
+                            onclick="event.stopPropagation(); openTemplateModulePicker('${safePlan}')"
+                            title="Thêm module từ Plan chính vào template">
+                        <span class="material-icons-round font-sm">playlist_add</span> Thêm từ Plan chính
+                    </button>` : ''}
                 </div>
             </div>
             <div class="level2-body">
@@ -2674,6 +2735,46 @@ async function deleteCourseRecord(courseName) {
         console.error(err);
     }
 }
+
+window.openTemplateModulePicker = function(templatePlan) {
+    const templateModules = state.courses.filter(c => c.plan === templatePlan);
+    if (!templateModules.length || templateModules[0].plan_type !== "template") return;
+    const sourcePlanId = templateModules[0].source_plan_id;
+    const includedSourceIds = new Set(templateModules.map(m => m.source_module_id).filter(Boolean));
+    const available = state.courses.filter(m => m.plan_id === sourcePlanId && m.queue !== false && !includedSourceIds.has(m.module_id));
+    document.getElementById("templateTargetPlan").value = templatePlan;
+    const list = document.getElementById("templateSourceModulesList");
+    if (!available.length) {
+        list.innerHTML = `<div class="empty-state"><p>Template đã có đầy đủ module Active từ Plan chính.</p></div>`;
+    } else {
+        list.innerHTML = available.map(m => `
+            <div class="calc-info-box glass mb-2 flex-align-center justify-between">
+                <div>
+                    <strong>${m.module_name}</strong>
+                    <div class="font-xs text-secondary">${m.course_name}${m.path ? ` / ${m.path}` : ""} · ${formatDuration(m.duration, m.duration_minutes)}</div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="includeModuleInTemplate('${templatePlan.replace(/'/g, "\\'")}', '${m.module_id}')">
+                    <span class="material-icons-round font-sm">add</span> Thêm
+                </button>
+            </div>`).join("");
+    }
+    showModal(templateModulesModal);
+};
+
+window.includeModuleInTemplate = async function(templatePlan, sourceModuleId) {
+    const response = await fetch(`${API_BASE}/api/plan-templates/include-module`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_plan: templatePlan, source_module_id: sourceModuleId })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        alert(`Lỗi: ${result.detail}`);
+        return;
+    }
+    await refreshData();
+    openTemplateModulePicker(templatePlan);
+};
 
 window.openSaveAsPlanModal = function(planName) {
     const matchingActive = state.courses.filter(c => c.plan === planName && c.queue !== false);
@@ -3026,7 +3127,13 @@ function getSelectedTargetType() {
 function getSelectedTargetName(targetType) {
     const planSelect = document.getElementById("enrPlanSelect");
     const courseSelect = document.getElementById("enrCourseSelect");
-    return (targetType === "plan") ? (planSelect ? planSelect.value : "") : (courseSelect ? courseSelect.value : "");
+    const select = targetType === "plan" ? planSelect : courseSelect;
+    return select?.selectedOptions?.[0]?.dataset?.targetName || "";
+}
+
+function getSelectedTargetId(targetType) {
+    const select = document.getElementById(targetType === "plan" ? "enrPlanSelect" : "enrCourseSelect");
+    return select ? select.value : "";
 }
 
 function getTargetVideoMinutes(targetType, targetName) {
@@ -3036,10 +3143,11 @@ function getTargetVideoMinutes(targetType, targetName) {
     let moduleCount = 0;
     let matching = [];
     
+    const targetId = getSelectedTargetId(targetType);
     if (targetType === "plan") {
-        matching = state.courses.filter(c => c.plan === targetName && c.queue !== false);
+        matching = state.courses.filter(c => c.plan_id === targetId && c.queue !== false);
     } else {
-        matching = state.courses.filter(c => c.course_name === targetName && c.queue !== false);
+        matching = state.courses.filter(c => c.course_id === targetId && c.queue !== false);
     }
     
     moduleCount = matching.length;
@@ -3283,10 +3391,10 @@ window.openEditEnrollment = function(username, targetName) {
 
     if (enr.target_type === "plan") {
         const enrPlanSelect = document.getElementById("enrPlanSelect");
-        if (enrPlanSelect) enrPlanSelect.value = targetName;
+        if (enrPlanSelect) enrPlanSelect.value = enr.target_id;
     } else {
         const enrCourseSelect = document.getElementById("enrCourseSelect");
-        if (enrCourseSelect) enrCourseSelect.value = targetName;
+        if (enrCourseSelect) enrCourseSelect.value = enr.target_id;
     }
 
     if (enr.ratio) document.getElementById("enrRatio").value = enr.ratio;
@@ -3317,21 +3425,23 @@ function populateEnrollmentOptions() {
     
     // Populate Plans
     enrPlanSelect.innerHTML = "";
-    const uniquePlans = [...new Set(state.courses.map(c => c.plan || "Khác"))];
-    uniquePlans.forEach(pName => {
+    const uniquePlans = Array.from(new Map(state.courses.map(c => [c.plan_id, { id: c.plan_id, name: c.plan || "Khác" }])).values());
+    uniquePlans.forEach(plan => {
         const opt = document.createElement("option");
-        opt.value = pName;
-        opt.textContent = `Plan: ${pName}`;
+        opt.value = plan.id;
+        opt.dataset.targetName = plan.name;
+        opt.textContent = `Plan: ${plan.name}`;
         enrPlanSelect.appendChild(opt);
     });
     
     // Populate Courses
     enrCourseSelect.innerHTML = "";
-    const uniqueCourseNames = [...new Set(state.courses.map(c => c.course_name))];
-    uniqueCourseNames.forEach(cName => {
+    const uniqueCourses = Array.from(new Map(state.courses.map(c => [c.course_id, { id: c.course_id, name: c.course_name, plan: c.plan, path: c.path || "" }])).values());
+    uniqueCourses.forEach(course => {
         const opt = document.createElement("option");
-        opt.value = cName;
-        opt.textContent = cName;
+        opt.value = course.id;
+        opt.dataset.targetName = course.name;
+        opt.textContent = `${course.name} — ${course.plan}${course.path ? ` / ${course.path}` : ""}`;
         enrCourseSelect.appendChild(opt);
     });
     
@@ -3389,12 +3499,14 @@ async function submitEnrollmentForm(e) {
         }
     }
     
-    const targetName = (targetType === "plan") ? document.getElementById("enrPlanSelect").value : document.getElementById("enrCourseSelect").value;
+    const targetName = getSelectedTargetName(targetType);
+    const targetId = getSelectedTargetId(targetType);
     
     const data = {
         username: usernameVal,
         target_type: targetType,
         target_name: targetName,
+        target_id: targetId,
         course_name: targetName,
         start_date: document.getElementById("enrStartDate").value,
         planned_end_date: document.getElementById("enrEndDate").value,

@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <!-- Main Style Sheet -->
-    <link rel="stylesheet" href="/app.css">
+    <link rel="stylesheet" href="/app.css?v=20260813-schedule-dates">
 </head>
 <body class="dark-theme">
     <div class="background-glow"></div>
@@ -114,7 +114,7 @@
                             </div>
                         </div>
                         <div class="course-filter-container">
-                            <label for="courseFilter" data-i18n="lbl_filter_by_course">Xem theo Khóa học:</label>
+                            <label for="courseFilter" data-i18n="lbl_filter_by_course">Xem theo Plan:</label>
                             <select id="courseFilter" class="form-control">
                                 <!-- Populated dynamically -->
                             </select>
@@ -380,6 +380,7 @@
                     <input type="hidden" id="progCourseName">
                     <input type="hidden" id="progPath">
                     <input type="hidden" id="progModuleName">
+                    <input type="hidden" id="progModuleId">
                     
                     <div class="form-group-info">
                         <p><strong data-i18n="lbl_course">Khóa học:</strong> <span id="progInfoCourse">...</span></p>
@@ -593,8 +594,9 @@
                             <input type="number" id="enrRatio" class="form-control" min="0.5" max="10" step="0.5" value="3.0" required placeholder="Ví dụ: 3 (video 2h = thực tế 6h)">
                         </div>
                         <div class="form-group col-6">
-                            <label for="enrDailyHours">Thời lượng học mỗi ngày (giờ/ngày)</label>
-                            <input type="number" id="enrDailyHours" class="form-control" min="0.5" max="12" step="0.5" value="2.0" required>
+                            <label for="enrDailyHours">Số giờ học mỗi ngày</label>
+                            <input type="number" id="enrDailyHours" class="form-control" min="0.5" max="24" step="0.5" value="2" required>
+                            <small class="text-muted font-xs">Capacity lập lịch của một ngày học, ví dụ 2 giờ hoặc 8 giờ.</small>
                         </div>
                     </div>
 
@@ -665,6 +667,24 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT MODULE DURATION -->
+    <div class="modal-backdrop" id="templateModulesModal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h3>Thêm module từ Plan chính</h3>
+                <span class="material-icons-round close-btn" id="closeTemplateModulesModal">close</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="templateTargetPlan">
+                <p class="text-secondary font-sm">Chọn các module còn thiếu từ Plan nguồn để bổ sung vào Plan Template. Module đã học của nhân viên sẽ được giữ nguyên; lịch chưa bắt đầu sẽ tự tính lại.</p>
+                <div id="templateSourceModulesList" class="module-picker-list"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btnCancelTemplateModulesModal">Hủy</button>
+                </div>
             </div>
         </div>
     </div>
@@ -965,6 +985,6 @@
     </div>
 
     <!-- Main Controller Logic -->
-    <script src="/app.js"></script>
+    <script src="/app.js?v=20260813-schedule-dates"></script>
 </body>
 </html>

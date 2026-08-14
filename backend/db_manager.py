@@ -1,8 +1,81 @@
 import os
 import openpyxl
-from datetime import datetime, date
+import re
+import uuid
+from datetime import datetime, date, timedelta
+from backend.storage import EXCEL_FILE
 
-EXCEL_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sheet.xlsx")
+EXCEL_FILE = str(EXCEL_FILE)
+
+COURSE_HEADERS = ['Plan', 'Course Name', 'Path', 'Module Name', 'Duration', 'Duration (Minutes)', 'Queue', '% of Total', 'Module ID', 'Course Order', 'Module Order', 'Source Module ID']
+PLAN_META_SHEET = "Plan Metadata"
+PLAN_META_HEADERS = ['Plan ID', 'Plan Name', 'Plan Type', 'Source Plan ID', 'Display Order', 'Version', 'Updated At']
+
+def _stable_id(prefix, *parts):
+    raw = "|".join(str(p or "").strip() for p in parts)
+    return f"{prefix}_{uuid.uuid5(uuid.NAMESPACE_URL, raw).hex[:16]}"
+
+def _ensure_plan_metadata(wb):
+    """Migrate legacy name-based plans to stable metadata without changing row order."""
+    dirty = False
+    course_ws = next(ws for ws in wb.worksheets if ws.cell(1, 1).value == "Plan" and ws.cell(1, 2).value == "Course Name")
+    for col, header in enumerate(COURSE_HEADERS, 1):
+        if course_ws.cell(1, col).value != header:
+            course_ws.cell(1, col).value = header
+            dirty = True
+
+    if PLAN_META_SHEET not in wb.sheetnames:
+        meta_ws = wb.create_sheet(PLAN_META_SHEET)
+        meta_ws.append(PLAN_META_HEADERS)
+        dirty = True
+    else:
+        meta_ws = wb[PLAN_META_SHEET]
+        for col, header in enumerate(PLAN_META_HEADERS, 1):
+            if meta_ws.cell(1, col).value != header:
+                meta_ws.cell(1, col).value = header
+                dirty = True
+
+    existing = {}
+    for r in range(2, meta_ws.max_row + 1):
+        name = str(meta_ws.cell(r, 2).value or "").strip()
+        if name:
+            existing[name] = r
+
+    plan_order = []
+    course_orders = {}
+    module_orders = {}
+    for r in range(2, course_ws.max_row + 1):
+        plan = str(course_ws.cell(r, 1).value or "").strip()
+        course = str(course_ws.cell(r, 2).value or "").strip()
+        path = str(course_ws.cell(r, 3).value or "").strip()
+        module = str(course_ws.cell(r, 4).value or "").strip()
+        if not plan or not course:
+            continue
+        if plan not in plan_order:
+            plan_order.append(plan)
+        course_key = (plan, course, path)
+        if course_key not in course_orders:
+            course_orders[course_key] = 1 + sum(1 for k in course_orders if k[0] == plan)
+        module_orders[course_key] = module_orders.get(course_key, 0) + 1
+        if not course_ws.cell(r, 9).value:
+            course_ws.cell(r, 9).value = _stable_id("mod", plan, course, path, module)
+            dirty = True
+        if course_ws.cell(r, 10).value is None:
+            course_ws.cell(r, 10).value = course_orders[course_key]
+            dirty = True
+        if course_ws.cell(r, 11).value is None:
+            course_ws.cell(r, 11).value = module_orders[course_key]
+            dirty = True
+
+    for idx, plan in enumerate(plan_order, 1):
+        if plan not in existing:
+            # Legacy copied plans are treated as templates when their name starts
+            # with an existing plan name; future clones store this explicitly.
+            source = next((p for p in plan_order if p != plan and plan.startswith(p + " -")), None)
+            source_id = _stable_id("plan", source) if source else ""
+            meta_ws.append([_stable_id("plan", plan), plan, "template" if source else "main", source_id, idx, 1, datetime.now()])
+            dirty = True
+    return dirty
 
 def init_db():
     """Ensure necessary sheets exist in sheet.xlsx with headers."""
@@ -11,8 +84,7 @@ def init_db():
         ws = wb.active
         ws.title = "Danh sách khóa học EPM V5"
         # Write headers
-        headers = ['Plan', 'Course Name', 'Path', 'Module Name', 'Duration', 'Duration (Minutes)', 'Queue', '% of Total']
-        ws.append(headers)
+        ws.append(COURSE_HEADERS)
         wb.save(EXCEL_FILE)
 
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -21,9 +93,10 @@ def init_db():
     # 1. Check Course sheet
     if "Danh sách khóa học EPM V5" not in wb.sheetnames:
         ws = wb.create_sheet("Danh sách khóa học EPM V5")
-        headers = ['Plan', 'Course Name', 'Path', 'Module Name', 'Duration', 'Duration (Minutes)', 'Queue', '% of Total']
-        ws.append(headers)
+        ws.append(COURSE_HEADERS)
         dirty = True
+
+    dirty = _ensure_plan_metadata(wb) or dirty
 
     # 2. Check Employees sheet
     if "Danh sách nhân viên" not in wb.sheetnames:
@@ -59,17 +132,49 @@ def init_db():
         ws = wb.create_sheet("Tiến độ học tập")
         headers = [
             'Username', 'Course Name', 'Path', 'Module Name', 'Status', 
-            'Progress (%)', 'Start Date', 'Completion Date', 'Planned Completion Date', 'Tracking Status'
+            'Progress (%)', 'Start Date', 'Completion Date', 'Planned Completion Date', 'Tracking Status',
+            'Planned Start Date', 'Module ID', 'Enrollment ID', 'Excluded',
+            'Planned Start Offset Minutes', 'Planned End Offset Minutes'
         ]
         ws.append(headers)
         dirty = True
+    else:
+        ws = next(s for s in wb.worksheets if s.cell(1, 1).value == 'Username' and s.cell(1, 5).value == 'Status')
+        headers = ['Username', 'Course Name', 'Path', 'Module Name', 'Status', 'Progress (%)', 'Start Date', 'Completion Date', 'Planned Completion Date', 'Tracking Status', 'Planned Start Date', 'Module ID', 'Enrollment ID', 'Excluded', 'Planned Start Offset Minutes', 'Planned End Offset Minutes']
+        for col_idx, header in enumerate(headers, 1):
+            if ws.cell(1, col_idx).value != header:
+                ws.cell(1, col_idx).value = header
+                dirty = True
 
     # 4. Check Enrollments sheet
     if "Đăng ký khóa học" not in wb.sheetnames:
         ws = wb.create_sheet("Đăng ký khóa học")
-        headers = ['Username', 'Course Name', 'Start Date', 'Planned End Date', 'Workweek Type']
-        ws.append(headers)
+        ws.append(['Username', 'Target Type', 'Target Name', 'Start Date', 'Planned End Date', 'Workweek Type', 'Ratio', 'Daily Hours', 'Enrollment ID', 'Target ID', 'Target Version'])
         dirty = True
+
+    enrollment_ws = next((s for s in wb.worksheets if s.cell(1, 1).value == 'Username' and s.cell(1, 2).value == 'Target Type'), None)
+    if enrollment_ws is not None:
+        enrollment_headers = ['Username', 'Target Type', 'Target Name', 'Start Date', 'Planned End Date', 'Workweek Type', 'Ratio', 'Daily Hours', 'Enrollment ID', 'Target ID', 'Target Version']
+        for col_idx, header in enumerate(enrollment_headers, 1):
+            if enrollment_ws.cell(1, col_idx).value != header:
+                enrollment_ws.cell(1, col_idx).value = header
+                dirty = True
+        meta_ws = wb[PLAN_META_SHEET]
+        meta_by_name = {str(meta_ws.cell(r, 2).value): (meta_ws.cell(r, 1).value, meta_ws.cell(r, 6).value or 1) for r in range(2, meta_ws.max_row + 1)}
+        for r in range(2, enrollment_ws.max_row + 1):
+            username = str(enrollment_ws.cell(r, 1).value or '').strip()
+            target_name = str(enrollment_ws.cell(r, 3).value or '').strip()
+            if username and not enrollment_ws.cell(r, 9).value:
+                enrollment_ws.cell(r, 9).value = _stable_id('enr', username, enrollment_ws.cell(r, 2).value, target_name)
+                dirty = True
+            if target_name in meta_by_name:
+                target_id, version = meta_by_name[target_name]
+                if not enrollment_ws.cell(r, 10).value:
+                    enrollment_ws.cell(r, 10).value = target_id
+                    dirty = True
+                if enrollment_ws.cell(r, 11).value is None:
+                    enrollment_ws.cell(r, 11).value = version
+                    dirty = True
 
     if dirty:
         wb.save(EXCEL_FILE)
@@ -80,6 +185,16 @@ def get_courses():
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
     ws = wb["Danh sách khóa học EPM V5"]
+    meta_ws = wb[PLAN_META_SHEET]
+    plan_meta = {}
+    for mr in range(2, meta_ws.max_row + 1):
+        plan_meta[str(meta_ws.cell(mr, 2).value or '').strip()] = {
+            "plan_id": meta_ws.cell(mr, 1).value,
+            "plan_type": meta_ws.cell(mr, 3).value or "main",
+            "source_plan_id": meta_ws.cell(mr, 4).value or "",
+            "plan_order": int(meta_ws.cell(mr, 5).value or mr - 1),
+            "plan_version": int(meta_ws.cell(mr, 6).value or 1)
+        }
     courses = []
     # Headers are: Plan, Course Name, Path, Module Name, Duration, Duration (Minutes), Queue, % of Total
     for r in range(2, ws.max_row + 1):
@@ -91,6 +206,10 @@ def get_courses():
         duration_mins = ws.cell(row=r, column=6).value
         queue = ws.cell(row=r, column=7).value
         pct = ws.cell(row=r, column=8).value
+        module_id = ws.cell(row=r, column=9).value
+        course_order = ws.cell(row=r, column=10).value
+        module_order = ws.cell(row=r, column=11).value
+        source_module_id = ws.cell(row=r, column=12).value
         
         # Normalize Queue (can be boolean, string, or cell formula representation)
         is_queue = False
@@ -101,6 +220,7 @@ def get_courses():
                 is_queue = True
         
         if course_name:
+            meta = plan_meta.get(str(plan or '').strip(), {})
             courses.append({
                 "row": r,
                 "plan": plan,
@@ -110,9 +230,16 @@ def get_courses():
                 "duration": duration if duration else "",
                 "duration_minutes": int(duration_mins) if duration_mins is not None else 0,
                 "queue": is_queue,
-                "percent_of_total": pct if pct else "0.00%"
+                "percent_of_total": pct if pct else "0.00%",
+                "module_id": module_id or _stable_id("mod", plan, course_name, path, module_name),
+                "course_id": _stable_id("course", meta.get("plan_id", plan), course_name, path),
+                "source_module_id": source_module_id or "",
+                "course_order": int(course_order or 0),
+                "module_order": int(module_order or 0),
+                **meta
             })
     wb.close()
+    courses.sort(key=lambda c: (c.get("plan_order", 999999), c.get("course_order", 999999), c.get("module_order", 999999), c["row"]))
     return courses
 
 def recalculate_formulas(ws):
@@ -132,15 +259,21 @@ def add_course_modules(plan, course_name, path, modules):
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Danh sách khóa học EPM V5"]
     
+    existing_course_orders = [int(ws.cell(r, 10).value or 0) for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == plan]
+    course_order = next((int(ws.cell(r, 10).value or 0) for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == plan and ws.cell(r, 2).value == course_name and (ws.cell(r, 3).value or "") == (path or "")), max(existing_course_orders or [0]) + 1)
+    existing_module_orders = [int(ws.cell(r, 11).value or 0) for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == plan and ws.cell(r, 2).value == course_name and (ws.cell(r, 3).value or "") == (path or "")]
+    next_module_order = max(existing_module_orders or [0]) + 1
+
     # Find existing row for this course
     insert_at = None
     for r in range(2, ws.max_row + 1):
+        plan_name = ws.cell(row=r, column=1).value
         c_name = ws.cell(row=r, column=2).value
         p_name = ws.cell(row=r, column=3).value
-        if c_name == course_name and (not path or p_name == path):
+        if plan_name == plan and c_name == course_name and (not path or p_name == path):
             insert_at = r
             # Find the last module of this course/path
-            while r <= ws.max_row and ws.cell(row=r, column=2).value == course_name and (not path or ws.cell(row=r, column=3).value == path):
+            while r <= ws.max_row and ws.cell(row=r, column=1).value == plan and ws.cell(row=r, column=2).value == course_name and (not path or ws.cell(row=r, column=3).value == path):
                 insert_at = r
                 r += 1
             break
@@ -148,10 +281,13 @@ def add_course_modules(plan, course_name, path, modules):
     if insert_at is None:
         # Append at the end
         for m in modules:
+            module_id = m.get("module_id") or _stable_id("mod", plan, course_name, path, m["module_name"], uuid.uuid4().hex)
             ws.append([
                 plan, course_name, path or "", m["module_name"], 
-                m["duration"], m["duration_minutes"], m.get("queue", True), ""
+                m["duration"], m["duration_minutes"], m.get("queue", True), "",
+                module_id, course_order, next_module_order, m.get("source_module_id", "")
             ])
+            next_module_order += 1
     else:
         # Insert rows right after the last module of the course
         for i, m in enumerate(modules):
@@ -164,10 +300,16 @@ def add_course_modules(plan, course_name, path, modules):
             ws.cell(row=idx, column=5).value = m["duration"]
             ws.cell(row=idx, column=6).value = m["duration_minutes"]
             ws.cell(row=idx, column=7).value = m.get("queue", True)
+            ws.cell(row=idx, column=9).value = m.get("module_id") or _stable_id("mod", plan, course_name, path, m["module_name"], uuid.uuid4().hex)
+            ws.cell(row=idx, column=10).value = course_order
+            ws.cell(row=idx, column=11).value = next_module_order
+            ws.cell(row=idx, column=12).value = m.get("source_module_id", "")
+            next_module_order += 1
             
     recalculate_formulas(ws)
     wb.save(EXCEL_FILE)
     wb.close()
+    _touch_plan_and_reschedule(plan)
 
 def delete_course(course_name):
     """Delete all rows matching course_name."""
@@ -214,6 +356,8 @@ def toggle_module_status(plan: Optional[str] = None, course_name: Optional[str] 
         recalculate_formulas(ws)
         wb.save(EXCEL_FILE)
     wb.close()
+    if updated and plan:
+        _touch_plan_and_reschedule(plan)
     return updated
 
 def update_module_duration(plan: Optional[str], course_name: str, module_name: str, duration: str, duration_minutes: int, path: Optional[str] = None):
@@ -243,6 +387,8 @@ def update_module_duration(plan: Optional[str], course_name: str, module_name: s
         recalculate_formulas(ws)
         wb.save(EXCEL_FILE)
     wb.close()
+    if updated and plan:
+        _touch_plan_and_reschedule(plan)
     return updated
 
 def move_module_to_course(source_plan: Optional[str], source_course: str, module_name: str, target_plan: str, target_course: str, target_path: Optional[str] = None, source_path: Optional[str] = None):
@@ -274,6 +420,10 @@ def move_module_to_course(source_plan: Optional[str], source_course: str, module
         recalculate_formulas(ws)
         wb.save(EXCEL_FILE)
     wb.close()
+    if moved:
+        if source_plan:
+            _touch_plan_and_reschedule(source_plan)
+        _touch_plan_and_reschedule(target_plan)
     return moved
 
 def delete_single_module(plan: Optional[str], course_name: str, module_name: str, path: Optional[str] = None):
@@ -303,6 +453,8 @@ def delete_single_module(plan: Optional[str], course_name: str, module_name: str
         recalculate_formulas(ws)
         wb.save(EXCEL_FILE)
         wb.close()
+        if plan:
+            _touch_plan_and_reschedule(plan)
         return True
         
     wb.close()
@@ -352,6 +504,19 @@ def clone_plan_campaign(source_plan: str, new_plan: str):
     
     if not matching:
         return False
+
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    meta_ws = wb[PLAN_META_SHEET]
+    meta_by_name = {str(meta_ws.cell(r, 2).value or '').strip(): r for r in range(2, meta_ws.max_row + 1)}
+    if new_plan in meta_by_name:
+        wb.close()
+        return False
+    source_row = meta_by_name.get(source_plan)
+    source_id = meta_ws.cell(source_row, 1).value if source_row else _stable_id('plan', source_plan)
+    max_order = max([int(meta_ws.cell(r, 5).value or 0) for r in range(2, meta_ws.max_row + 1)] or [0])
+    meta_ws.append([_stable_id('plan', new_plan), new_plan, 'template', source_id, max_order + 1, 1, datetime.now()])
+    wb.save(EXCEL_FILE)
+    wb.close()
         
     course_groups = {}
     for m in matching:
@@ -362,12 +527,40 @@ def clone_plan_campaign(source_plan: str, new_plan: str):
             "module_name": m["module_name"],
             "duration": m["duration"],
             "duration_minutes": m["duration_minutes"],
-            "queue": True
+            "queue": True,
+            "source_module_id": m.get("module_id", "")
         })
         
     for (course_name, path), modules in course_groups.items():
         add_course_modules(new_plan, course_name, path, modules)
         
+    return True
+
+def add_source_module_to_template(template_plan: str, source_module_id: str):
+    """Include one module from a template's linked main Plan."""
+    init_db()
+    courses = get_courses()
+    template_modules = [m for m in courses if m['plan'] == template_plan]
+    if not template_modules:
+        return False
+    template_meta = _get_plan_meta_by_name(template_plan)
+    if template_meta.get('plan_type') != 'template' or not template_meta.get('source_plan_id'):
+        return False
+    source = next((m for m in courses if m.get('module_id') == source_module_id and m.get('plan_id') == template_meta['source_plan_id']), None)
+    if not source:
+        return False
+    existing = next((m for m in template_modules if m.get('source_module_id') == source_module_id), None)
+    if existing:
+        if not existing.get('queue'):
+            return toggle_module_status(template_plan, existing['course_name'], existing['module_name'], existing['path'], True)
+        return True
+    add_course_modules(template_plan, source['course_name'], source['path'], [{
+        'module_name': source['module_name'],
+        'duration': source['duration'],
+        'duration_minutes': source['duration_minutes'],
+        'queue': True,
+        'source_module_id': source_module_id
+    }])
     return True
 
 def reorder_courses_in_plan(plan: str, course_order: List[str]):
@@ -378,11 +571,14 @@ def reorder_courses_in_plan(plan: str, course_order: List[str]):
     
     all_other_rows = []
     plan_rows = []
+    plan_insert_index = None
     
     for r in range(2, ws.max_row + 1):
         p_val = ws.cell(row=r, column=1).value
-        row_values = [ws.cell(row=r, column=c).value for c in range(1, 9)]
+        row_values = [ws.cell(row=r, column=c).value for c in range(1, 13)]
         if p_val == plan:
+            if plan_insert_index is None:
+                plan_insert_index = len(all_other_rows)
             plan_rows.append(row_values)
         else:
             all_other_rows.append(row_values)
@@ -401,16 +597,26 @@ def reorder_courses_in_plan(plan: str, course_order: List[str]):
         
     # Reassemble plan rows according to course_order
     reordered_plan_rows = []
-    for c_name in course_order:
+    for order_idx, c_name in enumerate(course_order, 1):
         if c_name in grouped:
-            reordered_plan_rows.extend(grouped.pop(c_name))
+            course_rows = grouped.pop(c_name)
+            for row in course_rows:
+                row[9] = order_idx
+            reordered_plan_rows.extend(course_rows)
             
     # Append any remaining courses in plan not explicitly listed
+    next_order = len(course_order) + 1
     for remaining_rows in grouped.values():
+        for row in remaining_rows:
+            row[9] = next_order
         reordered_plan_rows.extend(remaining_rows)
+        next_order += 1
         
     # Combine non-plan rows and reordered plan rows
-    final_rows = all_other_rows + reordered_plan_rows
+    # Reinsert the reordered block at its original position so editing a Plan
+    # never moves the Plan card to the bottom of the catalog.
+    insert_at = plan_insert_index if plan_insert_index is not None else len(all_other_rows)
+    final_rows = all_other_rows[:insert_at] + reordered_plan_rows + all_other_rows[insert_at:]
     
     # Clear existing worksheet rows from row 2
     ws.delete_rows(2, ws.max_row)
@@ -423,6 +629,7 @@ def reorder_courses_in_plan(plan: str, course_order: List[str]):
     recalculate_formulas(ws)
     wb.save(EXCEL_FILE)
     wb.close()
+    _touch_plan_and_reschedule(plan)
     return True
 
 import hashlib
@@ -717,7 +924,7 @@ def delete_employee(username):
         wb.save(EXCEL_FILE)
     wb.close()
 
-def get_tracking_status(status, planned_date_str, completion_date_str, start_date_str=None, duration_minutes=0):
+def get_tracking_status(status, planned_date_str, completion_date_str, start_date_str=None, duration_minutes=0, planned_start_date_str=None):
     """
     Calculate tracking status based on:
     - Status (Not Started, In Progress, Completed)
@@ -739,6 +946,12 @@ def get_tracking_status(status, planned_date_str, completion_date_str, start_dat
         return "On-track"
         
     today = date.today()
+    planned_start_date = None
+    if planned_start_date_str:
+        try:
+            planned_start_date = planned_start_date_str.date() if isinstance(planned_start_date_str, (datetime, date)) else datetime.strptime(str(planned_start_date_str).split()[0], "%Y-%m-%d").date()
+        except Exception:
+            planned_start_date = None
     
     # Parse start date if available
     start_date = None
@@ -788,6 +1001,8 @@ def get_tracking_status(status, planned_date_str, completion_date_str, start_dat
                 return "Too slow"
     else:
         # Not Started
+        if planned_start_date and today >= planned_start_date:
+            return "Too slow" if today > planned_date else "Slow"
         if today < planned_date:
             return "On-track"
         else:
@@ -807,6 +1022,7 @@ def get_tracking_status(status, planned_date_str, completion_date_str, start_dat
 def get_progress(username=None):
     """Retrieve learning progress for one or all users."""
     init_db()
+    module_by_id = {m.get('module_id'): m for m in get_courses() if m.get('module_id')}
     wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
     ws = wb["Tiến độ học tập"]
     progress_list = []
@@ -822,15 +1038,21 @@ def get_progress(username=None):
         comp = ws.cell(row=r, column=8).value
         planned = ws.cell(row=r, column=9).value
         track_status = ws.cell(row=r, column=10).value
+        planned_start = ws.cell(row=r, column=11).value
+        module_id = ws.cell(row=r, column=12).value
+        enrollment_id = ws.cell(row=r, column=13).value
+        excluded = bool(ws.cell(row=r, column=14).value)
         
-        if u is not None and (username is None or str(u).strip() == str(username).strip()):
+        if u is not None and not excluded and (username is None or str(u).strip() == str(username).strip()):
             # Format dates to string
             start_str = start.strftime("%Y-%m-%d") if isinstance(start, (datetime, date)) else str(start) if start else ""
             comp_str = comp.strftime("%Y-%m-%d") if isinstance(comp, (datetime, date)) else str(comp) if comp else ""
             planned_str = planned.strftime("%Y-%m-%d") if isinstance(planned, (datetime, date)) else str(planned) if planned else ""
+            planned_start_str = planned_start.strftime("%Y-%m-%d") if isinstance(planned_start, (datetime, date)) else str(planned_start) if planned_start else ""
             
             # Recalculate status dynamically in case dates have passed
-            track_status = get_tracking_status(status, planned_str, comp_str)
+            course_module = module_by_id.get(module_id)
+            track_status = get_tracking_status(status, planned_str, comp_str, start_str, course_module.get('duration_minutes', 0) if course_module else 0, planned_start_str)
             
             progress_list.append({
                 "row": r,
@@ -843,12 +1065,15 @@ def get_progress(username=None):
                 "start_date": start_str,
                 "completion_date": comp_str,
                 "planned_completion_date": planned_str,
-                "tracking_status": track_status
+                "tracking_status": track_status,
+                "planned_start_date": planned_start_str,
+                "module_id": module_id or "",
+                "enrollment_id": enrollment_id or ""
             })
     wb.close()
     return progress_list
 
-def save_progress(username, course_name, path, module_name, status, progress_percent, start_date, completion_date, planned_completion_date):
+def save_progress(username, course_name, path, module_name, status, progress_percent, start_date, completion_date, planned_completion_date, module_id=None):
     """Save or update student module progress."""
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -905,9 +1130,11 @@ def save_progress(username, course_name, path, module_name, status, progress_per
         c = ws.cell(row=r, column=2).value
         p = ws.cell(row=r, column=3).value
         m = ws.cell(row=r, column=4).value
+        stored_module_id = ws.cell(row=r, column=12).value
         
         # Check matching record
-        if u is not None and str(u).strip() == str(username).strip() and c == course_name and (p or "") == (path or "") and m == module_name:
+        identity_matches = (stored_module_id == module_id) if module_id else (c == course_name and (p or "") == (path or "") and m == module_name)
+        if u is not None and str(u).strip() == str(username).strip() and identity_matches:
             found_row = r
             break
 
@@ -919,11 +1146,13 @@ def save_progress(username, course_name, path, module_name, status, progress_per
         ws.cell(row=found_row, column=8).value = comp_val
         ws.cell(row=found_row, column=9).value = planned_val
         ws.cell(row=found_row, column=10).value = tracking
+        if module_id:
+            ws.cell(row=found_row, column=12).value = module_id
     else:
         ws.append([
             u_str, course_name, path or "", module_name, status, 
             float(progress_percent), start_val, comp_val, 
-            planned_val, tracking
+            planned_val, tracking, None, module_id or "", "", False
         ])
         
     wb.save(EXCEL_FILE)
@@ -980,6 +1209,9 @@ def get_enrollments(username=None):
             ww = ws.cell(row=r, column=6).value
             ratio_val = ws.cell(row=r, column=7).value
             daily_h = ws.cell(row=r, column=8).value
+            enrollment_id = ws.cell(row=r, column=9).value
+            target_id = ws.cell(row=r, column=10).value
+            target_version = ws.cell(row=r, column=11).value
         else:
             target_type = "course"
             target_name = ws.cell(row=r, column=2).value or ""
@@ -988,6 +1220,9 @@ def get_enrollments(username=None):
             ww = ws.cell(row=r, column=5).value
             ratio_val = 3.0
             daily_h = 2.0
+            enrollment_id = ""
+            target_id = ""
+            target_version = 1
             
         if u is not None and str(u).strip() != "":
             start_str = start.strftime("%Y-%m-%d") if isinstance(start, (datetime, date)) else str(start).split()[0] if start else ""
@@ -1003,13 +1238,163 @@ def get_enrollments(username=None):
                     "planned_end_date": end_str,
                     "workweek_type": int(ww) if ww is not None else 5,
                     "ratio": float(ratio_val) if ratio_val is not None else 3.0,
-                    "daily_hours": float(daily_h) if daily_h is not None else 2.0
+                    "daily_hours": float(daily_h) if daily_h is not None else 2.0,
+                    "enrollment_id": enrollment_id or _stable_id('enr', u, target_type, target_name),
+                    "target_id": target_id or "",
+                    "target_version": int(target_version or 1)
                 })
     wb.close()
     return enrollments
 
+def _is_working_day(day_value, workweek_type):
+    weekday = day_value.weekday()
+    return workweek_type == 7 or (workweek_type == 6 and weekday < 6) or (workweek_type == 5 and weekday < 5)
 
-def save_enrollment(username, target_type, target_name, start_date, end_date, workweek_type, ratio=3.0, daily_hours=2.0):
+def _working_day_at(start_value, index, workweek_type):
+    current = start_value
+    while not _is_working_day(current, workweek_type):
+        current += timedelta(days=1)
+    seen = 0
+    while seen < index:
+        current += timedelta(days=1)
+        if _is_working_day(current, workweek_type):
+            seen += 1
+    return current
+
+def _effective_minutes(module, ratio):
+    is_exam = bool(re.search(r'1z0-|exam|certification|professional', module.get('module_name', ''), re.I))
+    base = max(0, int(module.get('duration_minutes') or 0))
+    return max(1, int(round(base if is_exam else base * float(ratio))))
+
+def _get_plan_meta_by_name(plan_name):
+    wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
+    ws = wb[PLAN_META_SHEET]
+    result = None
+    for r in range(2, ws.max_row + 1):
+        if str(ws.cell(r, 2).value or '').strip() == str(plan_name or '').strip():
+            result = {'plan_id': ws.cell(r, 1).value, 'plan_type': ws.cell(r, 3).value or 'main', 'source_plan_id': ws.cell(r, 4).value or '', 'version': int(ws.cell(r, 6).value or 1)}
+            break
+    wb.close()
+    return result or {'plan_id': _stable_id('plan', plan_name), 'plan_type': 'main', 'source_plan_id': '', 'version': 1}
+
+def _schedule_enrollment(username, target_type, target_name, start_date, workweek_type, ratio, daily_hours, enrollment_id=None, target_id=None):
+    """Schedule modules sequentially using the enrollment's configured study-day capacity."""
+    all_courses = get_courses()
+    if str(target_type).lower() == 'plan':
+        target_catalog = [m for m in all_courses if (target_id and m.get('plan_id') == target_id) or (not target_id and m['plan'] == target_name)]
+        modules = [m for m in target_catalog if m.get('queue', True)]
+    else:
+        target_catalog = [m for m in all_courses if (target_id and m.get('course_id') == target_id) or (not target_id and m['course_name'] == target_name)]
+        modules = [m for m in target_catalog if m.get('queue', True)]
+    modules.sort(key=lambda m: (m.get('course_order', 0), m.get('module_order', 0), m.get('row', 0)))
+    if not modules:
+        return start_date
+
+    u_str = str(username).strip()
+    enrollment_id = enrollment_id or _stable_id('enr', u_str, target_type, target_name)
+    start_val = datetime.strptime(str(start_date).split()[0], '%Y-%m-%d').date()
+    ww = int(workweek_type)
+    day_capacity_minutes = max(30, int(round(float(daily_hours or 2.0) * 60)))
+    schedule = []
+    cursor = 0
+    for module in modules:
+        minutes = _effective_minutes(module, ratio)
+        start_idx = cursor // day_capacity_minutes
+        end_idx = max(start_idx, (cursor + minutes - 1) // day_capacity_minutes)
+        start_offset = cursor % day_capacity_minutes
+        end_cursor = cursor + minutes
+        end_offset = end_cursor % day_capacity_minutes or day_capacity_minutes
+        schedule.append((module, _working_day_at(start_val, start_idx, ww), _working_day_at(start_val, end_idx, ww), start_offset, end_offset))
+        cursor += minutes
+
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    p_ws = next(s for s in wb.worksheets if s.cell(1, 1).value == 'Username' and s.cell(1, 5).value == 'Status')
+    active_ids = {m.get('module_id') for m, _, _, _, _ in schedule}
+    catalog_by_key = {(m['course_name'], m['path'] or '', m['module_name']): m for m in target_catalog}
+    existing = {}
+    for r in range(2, p_ws.max_row + 1):
+        if str(p_ws.cell(r, 1).value or '').strip() != u_str:
+            continue
+        row_enrollment = p_ws.cell(r, 13).value
+        module_id = p_ws.cell(r, 12).value
+        legacy_key = (p_ws.cell(r, 2).value, p_ws.cell(r, 3).value or '', p_ws.cell(r, 4).value)
+        catalog_module = catalog_by_key.get(legacy_key)
+        if not row_enrollment and catalog_module and not catalog_module.get('queue') and (p_ws.cell(r, 5).value or 'Not Started') == 'Not Started':
+            p_ws.cell(r, 12).value = catalog_module.get('module_id')
+            p_ws.cell(r, 13).value = enrollment_id
+            p_ws.cell(r, 14).value = True
+        if row_enrollment == enrollment_id and module_id:
+            existing[module_id] = r
+            if module_id not in active_ids and (p_ws.cell(r, 5).value or 'Not Started') == 'Not Started':
+                p_ws.cell(r, 14).value = True
+
+    for module, planned_start, planned_end, start_offset, end_offset in schedule:
+        module_id = module.get('module_id')
+        row = existing.get(module_id)
+        if row is None:
+            # Adopt a legacy row once, preserving its history.
+            for r in range(2, p_ws.max_row + 1):
+                if (str(p_ws.cell(r, 1).value or '').strip() == u_str and p_ws.cell(r, 2).value == module['course_name'] and (p_ws.cell(r, 3).value or '') == (module['path'] or '') and p_ws.cell(r, 4).value == module['module_name'] and not p_ws.cell(r, 13).value):
+                    row = r
+                    break
+        if row is None:
+            p_ws.append([u_str, module['course_name'], module['path'] or '', module['module_name'], 'Not Started', 0.0, None, None, planned_end, '', planned_start, module_id, enrollment_id, False, start_offset, end_offset])
+            row = p_ws.max_row
+        else:
+            p_ws.cell(row, 12).value = module_id
+            p_ws.cell(row, 13).value = enrollment_id
+            p_ws.cell(row, 14).value = False
+            # Planned dates describe the current plan version. Actual dates are
+            # kept separately and remain untouched as historical evidence.
+            p_ws.cell(row, 9).value = planned_end
+            p_ws.cell(row, 11).value = planned_start
+        p_ws.cell(row, 15).value = start_offset
+        p_ws.cell(row, 16).value = end_offset
+        p_ws.cell(row, 10).value = get_tracking_status(p_ws.cell(row, 5).value or 'Not Started', p_ws.cell(row, 9).value, p_ws.cell(row, 8).value, p_ws.cell(row, 7).value, module.get('duration_minutes', 0), p_ws.cell(row, 11).value)
+    wb.save(EXCEL_FILE)
+    wb.close()
+    return schedule[-1][2].strftime('%Y-%m-%d')
+
+def _touch_plan_and_reschedule(plan_name):
+    """Increment a Plan version and reschedule every live enrollment mapped to it."""
+    if not plan_name or not os.path.exists(EXCEL_FILE):
+        return
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    if PLAN_META_SHEET not in wb.sheetnames:
+        wb.close()
+        return
+    meta_ws = wb[PLAN_META_SHEET]
+    version = 1
+    plan_id = ''
+    for r in range(2, meta_ws.max_row + 1):
+        if str(meta_ws.cell(r, 2).value or '').strip() == str(plan_name).strip():
+            plan_id = meta_ws.cell(r, 1).value
+            version = int(meta_ws.cell(r, 6).value or 1) + 1
+            meta_ws.cell(r, 6).value = version
+            meta_ws.cell(r, 7).value = datetime.now()
+            break
+    wb.save(EXCEL_FILE)
+    wb.close()
+    for enrollment in get_enrollments():
+        if enrollment['target_type'] == 'plan' and (enrollment['target_name'] == plan_name or (plan_id and enrollment.get('target_id') == plan_id)):
+            end_date = _schedule_enrollment(enrollment['username'], enrollment['target_type'], enrollment['target_name'], enrollment['start_date'], enrollment['workweek_type'], enrollment['ratio'], enrollment['daily_hours'], enrollment.get('enrollment_id'), enrollment.get('target_id'))
+            _update_enrollment_schedule_metadata(enrollment.get('enrollment_id'), end_date, plan_id, version)
+
+def _update_enrollment_schedule_metadata(enrollment_id, end_date, target_id, target_version):
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = next((s for s in wb.worksheets if s.cell(1, 2).value == 'Target Type'), None)
+    if ws:
+        for r in range(2, ws.max_row + 1):
+            if ws.cell(r, 9).value == enrollment_id:
+                ws.cell(r, 5).value = datetime.strptime(end_date, '%Y-%m-%d').date()
+                ws.cell(r, 10).value = target_id
+                ws.cell(r, 11).value = target_version
+                break
+        wb.save(EXCEL_FILE)
+    wb.close()
+
+
+def save_enrollment(username, target_type, target_name, start_date, end_date, workweek_type, ratio=3.0, daily_hours=2.0, target_id=None):
     """Save enrollment (Plan or Course) and auto-schedule module deadlines."""
     init_db()
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -1023,18 +1408,27 @@ def save_enrollment(username, target_type, target_name, start_date, end_date, wo
         ws.cell(row=1, column=6).value = 'Workweek Type'
         ws.cell(row=1, column=7).value = 'Ratio'
         ws.cell(row=1, column=8).value = 'Daily Hours'
+        ws.cell(row=1, column=9).value = 'Enrollment ID'
+        ws.cell(row=1, column=10).value = 'Target ID'
+        ws.cell(row=1, column=11).value = 'Target Version'
         
     found_row = None
     u_str = str(username).strip()
     for r in range(2, ws.max_row + 1):
         u = ws.cell(row=r, column=1).value
         t_name = ws.cell(row=r, column=3).value if ws.cell(row=1, column=2).value == 'Target Type' else ws.cell(row=r, column=2).value
-        if u is not None and str(u).strip() == u_str and t_name == target_name:
+        row_target_type = str(ws.cell(r, 2).value or 'plan').lower()
+        row_target_id = str(ws.cell(r, 10).value or '')
+        target_matches = (row_target_id == str(target_id)) if target_id else (t_name == target_name)
+        if u is not None and str(u).strip() == u_str and target_matches and row_target_type == str(target_type).lower():
             found_row = r
             break
             
     start_val = datetime.strptime(start_date, "%Y-%m-%d").date()
     end_val = datetime.strptime(end_date, "%Y-%m-%d").date()
+    enrollment_id = _stable_id('enr', u_str, target_type, target_name)
+    target_meta = _get_plan_meta_by_name(target_name) if str(target_type).lower() == 'plan' else {'plan_id': target_id or '', 'version': 1}
+    resolved_target_id = target_id or target_meta.get('plan_id', '')
     
     if found_row:
         ws.cell(row=found_row, column=2).value = target_type
@@ -1044,11 +1438,18 @@ def save_enrollment(username, target_type, target_name, start_date, end_date, wo
         ws.cell(row=found_row, column=6).value = int(workweek_type)
         ws.cell(row=found_row, column=7).value = float(ratio)
         ws.cell(row=found_row, column=8).value = float(daily_hours)
+        ws.cell(row=found_row, column=9).value = enrollment_id
+        ws.cell(row=found_row, column=10).value = resolved_target_id
+        ws.cell(row=found_row, column=11).value = target_meta.get('version', 1)
     else:
-        ws.append([u_str, target_type, target_name, start_val, end_val, int(workweek_type), float(ratio), float(daily_hours)])
+        ws.append([u_str, target_type, target_name, start_val, end_val, int(workweek_type), float(ratio), float(daily_hours), enrollment_id, resolved_target_id, target_meta.get('version', 1)])
         
     wb.save(EXCEL_FILE)
     wb.close()
+
+    computed_end = _schedule_enrollment(u_str, target_type, target_name, start_date, workweek_type, ratio, daily_hours, enrollment_id, resolved_target_id)
+    _update_enrollment_schedule_metadata(enrollment_id, computed_end, resolved_target_id, target_meta.get('version', 1))
+    return
     
     # 2. Schedule module deadlines
     all_courses = get_courses()
@@ -1122,6 +1523,26 @@ def delete_enrollment(username, target_name):
     """Delete enrollment and related learning progress modules."""
     init_db()
     u_str = str(username).strip()
+    lookup_wb = openpyxl.load_workbook(EXCEL_FILE)
+    enrollment_ws = next((s for s in lookup_wb.worksheets if s.cell(1, 2).value == 'Target Type'), None)
+    enrollment_row = None
+    enrollment_id = None
+    if enrollment_ws:
+        for r in range(2, enrollment_ws.max_row + 1):
+            if str(enrollment_ws.cell(r, 1).value or '').strip() == u_str and enrollment_ws.cell(r, 3).value == target_name:
+                enrollment_row = r
+                enrollment_id = enrollment_ws.cell(r, 9).value
+                break
+    if enrollment_row and enrollment_id:
+        progress_ws = next(s for s in lookup_wb.worksheets if s.cell(1, 5).value == 'Status')
+        for r in range(progress_ws.max_row, 1, -1):
+            if progress_ws.cell(r, 13).value == enrollment_id:
+                progress_ws.delete_rows(r)
+        enrollment_ws.delete_rows(enrollment_row)
+        lookup_wb.save(EXCEL_FILE)
+        lookup_wb.close()
+        return
+    lookup_wb.close()
     
     all_courses = get_courses()
     target_modules = [m for m in all_courses if m["plan"] == target_name or m["course_name"] == target_name]

@@ -1318,6 +1318,32 @@ body {
     border-bottom: none;
 }
 
+.schedule-date-cell {
+    min-width: 10.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.schedule-date-line {
+    display: grid;
+    grid-template-columns: minmax(5.6rem, auto) 1fr;
+    align-items: baseline;
+    gap: 0.55rem;
+    white-space: nowrap;
+}
+
+.schedule-date-line.actual {
+    padding-top: 0.3rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.schedule-date-label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
 .mod-name-cell {
     color: var(--text-primary) !important;
 }
@@ -1828,7 +1854,6 @@ body {
 .toggle-switch-btn.is-inactive:hover {
     background: rgba(148, 163, 184, 0.25);
 }
-
 
 
 

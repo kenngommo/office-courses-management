@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import shutil
+from backend.storage import BACKUP_DIR, DATA_DIR, EXCEL_FILE, PERSISTENT_STORAGE_CONFIGURED, create_backup
 
 from backend.db_manager import (
     init_db,
@@ -26,6 +27,7 @@ from backend.db_manager import (
     toggle_module_status,
     clone_course_campaign,
     clone_plan_campaign,
+    add_source_module_to_template,
     reorder_courses_in_plan,
     update_module_duration,
     move_module_to_course,
@@ -36,6 +38,13 @@ from backend.db_manager import (
 init_db()
 
 app = FastAPI(title="Courses Management API V5")
+
+@app.middleware("http")
+async def backup_after_data_change(request, call_next):
+    response = await call_next(request)
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and response.status_code < 400:
+        create_backup(f"{request.method.lower()}-{request.url.path.strip('/').replace('/', '-')}")
+    return response
 
 # Setup CORS to allow React frontend to connect
 app.add_middleware(
@@ -85,6 +94,7 @@ class ProgressUpdateRequest(BaseModel):
     course_name: str
     path: Optional[str] = ""
     module_name: str
+    module_id: Optional[str] = None
     status: str  # Not Started, In Progress, Completed
     progress_percent: float = Field(..., ge=0, le=100)
     start_date: Optional[str] = None          # YYYY-MM-DD
@@ -117,6 +127,18 @@ def api_reset_password(req: ResetPasswordRequest):
     return {"status": "success", "message": message, "temp_password": temp_password}
 
 # --- API Endpoints ---
+
+@app.get("/api/system/storage")
+def api_storage_status():
+    backups = sorted(BACKUP_DIR.glob("sheet-*.xlsx"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return {
+        "data_dir": str(DATA_DIR),
+        "workbook_exists": EXCEL_FILE.exists(),
+        "workbook_size": EXCEL_FILE.stat().st_size if EXCEL_FILE.exists() else 0,
+        "backup_count": len(backups),
+        "latest_backup": backups[0].name if backups else None,
+        "persistent_storage_configured": PERSISTENT_STORAGE_CONFIGURED,
+    }
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 
@@ -186,6 +208,7 @@ def api_save_progress(req: ProgressUpdateRequest):
             course_name=req.course_name,
             path=req.path,
             module_name=req.module_name,
+            module_id=req.module_id,
             status=req.status,
             progress_percent=req.progress_percent,
             start_date=req.start_date,
@@ -202,12 +225,13 @@ class EnrollmentRequest(BaseModel):
     username: str
     target_type: str = "plan"  # "plan" or "course"
     target_name: str           # Plan name or Course name
+    target_id: Optional[str] = None
     course_name: Optional[str] = None # Backward compatibility
     start_date: str          # YYYY-MM-DD
     planned_end_date: str    # YYYY-MM-DD
     workweek_type: int = 5   # 5, 6, or 7
     ratio: float = 3.0       # Video learning multiplier ratio
-    daily_hours: float = 2.0 # Daily study hours
+    daily_hours: float = Field(2.0, ge=0.5, le=24) # Configurable study-day capacity
 
 @app.get("/api/enrollments")
 def api_get_enrollments(username: Optional[str] = None):
@@ -234,7 +258,8 @@ def api_save_enrollment(req: EnrollmentRequest):
             end_date=req.planned_end_date,
             workweek_type=req.workweek_type,
             ratio=req.ratio,
-            daily_hours=req.daily_hours
+            daily_hours=req.daily_hours,
+            target_id=req.target_id
         )
         return {"status": "success", "message": f"Successfully enrolled {req.username} in {target_name} ({req.target_type})"}
     except Exception as e:
@@ -356,6 +381,21 @@ def api_clone_plan(req: ClonePlanRequest):
 class ReorderCoursesRequest(BaseModel):
     plan: str
     course_order: List[str]
+
+class IncludeTemplateModuleRequest(BaseModel):
+    template_plan: str
+    source_module_id: str
+
+@app.post("/api/plan-templates/include-module")
+def api_include_template_module(req: IncludeTemplateModuleRequest):
+    try:
+        if not add_source_module_to_template(req.template_plan, req.source_module_id):
+            raise HTTPException(status_code=400, detail="Template hoặc module nguồn không hợp lệ.")
+        return {"status": "success", "message": "Đã thêm module từ Plan chính vào Plan Template."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/courses/reorder")
 def api_reorder_courses(req: ReorderCoursesRequest):
