@@ -1,6 +1,7 @@
 import os
 import shutil
 import threading
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +15,12 @@ BACKUP_DIR = Path(os.getenv("BACKUP_DIR", str(DATA_DIR / "backups"))).resolve()
 BACKUP_RETENTION = max(1, int(os.getenv("BACKUP_RETENTION", "30")))
 
 _backup_lock = threading.Lock()
+
+
+def workbook_sha256() -> str | None:
+    if not EXCEL_FILE.exists():
+        return None
+    return hashlib.sha256(EXCEL_FILE.read_bytes()).hexdigest()
 
 
 def initialize_storage() -> None:

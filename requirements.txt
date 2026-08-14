@@ -4,4 +4,5 @@ openpyxl==3.1.5
 pydantic==2.13.4
 starlette==1.6.0
 python-multipart
+psycopg[binary]==3.2.10
 playwright

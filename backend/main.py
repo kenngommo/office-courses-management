@@ -5,7 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import shutil
+import asyncio
 from backend.storage import BACKUP_DIR, DATA_DIR, EXCEL_FILE, PERSISTENT_STORAGE_CONFIGURED, create_backup
+from backend.workbook_store import (
+    initialize_remote_workbook,
+    is_enabled as remote_store_enabled,
+    pull_remote_workbook,
+    publish_local_workbook,
+    remote_status,
+)
 
 from backend.db_manager import (
     init_db,
@@ -34,18 +42,27 @@ from backend.db_manager import (
     delete_single_module
 )
 
-# Initialize sheet schema if not already present
+# Restore the durable workbook before any schema initialization or API read.
+initialize_remote_workbook()
 init_db()
 
 app = FastAPI(title="Courses Management API V5")
+workbook_request_lock = asyncio.Lock()
 
 @app.middleware("http")
 async def backup_after_data_change(request, call_next):
-    response = await call_next(request)
-    is_data_change = request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path != "/api/auth/login"
-    if is_data_change and response.status_code < 400:
-        create_backup(f"{request.method.lower()}-{request.url.path.strip('/').replace('/', '-')}")
-    return response
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    async with workbook_request_lock:
+        if remote_store_enabled():
+            pull_remote_workbook()
+        response = await call_next(request)
+        is_data_change = request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path != "/api/auth/login"
+        if is_data_change and response.status_code < 400:
+            reason = f"{request.method.lower()}-{request.url.path.strip('/').replace('/', '-')}"
+            create_backup(reason)
+            publish_local_workbook(reason)
+        return response
 
 # Setup CORS to allow React frontend to connect
 app.add_middleware(
@@ -138,7 +155,8 @@ def api_storage_status():
         "workbook_size": EXCEL_FILE.stat().st_size if EXCEL_FILE.exists() else 0,
         "backup_count": len(backups),
         "latest_backup": backups[0].name if backups else None,
-        "persistent_storage_configured": PERSISTENT_STORAGE_CONFIGURED,
+        "persistent_storage_configured": PERSISTENT_STORAGE_CONFIGURED or remote_store_enabled(),
+        "remote_store": remote_status(),
     }
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

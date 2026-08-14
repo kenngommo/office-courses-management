@@ -582,6 +582,9 @@ function setupEventHandlers() {
                         localStorage.removeItem("epm_remember");
                     }
 
+                    await refreshData();
+                    state.loggedInUser = state.users.find(u => u.username === data.user.username) || data.user;
+                    state.currentUser = state.loggedInUser;
                     renderSelectors();
                     loginOverlay.classList.remove("active");
                     onUserChanged();
