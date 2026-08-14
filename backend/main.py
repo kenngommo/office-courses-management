@@ -222,8 +222,11 @@ def api_add_employee(req: EmployeeRequest):
 @app.delete("/api/employees")
 def api_delete_employee(username: str = Query(..., description="Username of the employee to delete")):
     try:
-        delete_employee(username)
+        if not delete_employee(username):
+            raise HTTPException(status_code=404, detail=f"Employee not found: {username}")
         return {"status": "success", "message": f"Successfully deleted employee: {username}"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting employee: {str(e)}")
 

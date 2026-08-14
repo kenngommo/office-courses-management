@@ -921,8 +921,26 @@ def delete_employee(username):
             break
     if found_row:
         ws.delete_rows(found_row)
+        # Keep the workbook relationally consistent: an employee removal also
+        # removes dependent enrollments and learning progress in the same save.
+        for dependent_ws in wb.worksheets:
+            is_progress = (
+                dependent_ws.cell(1, 1).value == "Username"
+                and dependent_ws.cell(1, 5).value == "Status"
+            )
+            is_enrollment = (
+                dependent_ws.cell(1, 1).value == "Username"
+                and dependent_ws.cell(1, 2).value == "Target Type"
+            )
+            if not (is_progress or is_enrollment):
+                continue
+            for row in range(dependent_ws.max_row, 1, -1):
+                value = str(dependent_ws.cell(row=row, column=1).value or "").strip()
+                if value == u_str:
+                    dependent_ws.delete_rows(row)
         wb.save(EXCEL_FILE)
     wb.close()
+    return found_row is not None
 
 def get_tracking_status(status, planned_date_str, completion_date_str, start_date_str=None, duration_minutes=0, planned_start_date_str=None):
     """
